@@ -1,5 +1,17 @@
 defmodule RR do
   require Logger
+  use Application
+
+  @impl true
+  def start(_, _) do
+    args = Burrito.Util.Args.argv()
+    IO.puts("starting args are ")
+    IO.puts(args)
+    IO.puts("#{rancher_logged_in?()}")
+
+    opts = [strategy: :one_for_one, name: RR.Supervisor]
+    Supervisor.start_link([], opts)
+  end
 
   def rancher_logged_in? do
     case Req.get!(base_req(), url: "/v3/clusters") do
