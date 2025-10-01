@@ -1,16 +1,25 @@
 defmodule RR do
   require Logger
-  use Application
 
-  @impl true
-  def start(_, _) do
-    args = Burrito.Util.Args.argv()
-    IO.puts("starting args are ")
-    IO.puts(args)
-    IO.puts("#{rancher_logged_in?()}")
+  def start_link(_arg) do
+    IO.puts("starting")
 
-    opts = [strategy: :one_for_one, name: RR.Supervisor]
-    Supervisor.start_link([], opts)
+    Task.start_link(fn ->
+      IO.puts("#{rancher_logged_in?()}")
+      :init.stop()
+    end)
+  end
+
+  def stop() do
+    IO.puts("have a good day")
+  end
+
+  def child_spec(arg) do
+    %{
+      id: RR,
+      start: {RR, :start_link, [arg]},
+      stop: {RR, :stop}
+    }
   end
 
   def rancher_logged_in? do
