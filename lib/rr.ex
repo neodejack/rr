@@ -1,25 +1,16 @@
 defmodule RR do
   require Logger
+  use Task
 
-  def start_link(_arg) do
+  def start_link(arg) do
+    Task.start_link(__MODULE__, :run, [arg])
+  end
+
+  def run(_arg) do
     IO.puts("starting")
-
-    Task.start_link(fn ->
-      IO.puts("#{rancher_logged_in?()}")
-      :init.stop()
-    end)
-  end
-
-  def stop() do
-    IO.puts("have a good day")
-  end
-
-  def child_spec(arg) do
-    %{
-      id: RR,
-      start: {RR, :start_link, [arg]},
-      stop: {RR, :stop}
-    }
+    IO.puts("#{rancher_logged_in?()}")
+    IO.puts("done")
+    :init.stop()
   end
 
   def rancher_logged_in? do
