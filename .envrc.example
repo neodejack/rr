@@ -1,0 +1,3 @@
+## this is only needed for `mix test`
+export RANCHER_HOSTNAME=xxx
+export RANCHER_TOKEN=xxx

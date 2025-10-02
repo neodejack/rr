@@ -23,3 +23,5 @@ rr-*.tar
 /tmp/
 
 /burrito_out/
+
+.envrc
