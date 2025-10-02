@@ -5,7 +5,9 @@ defmodule RR.KubeConfig do
   @enforce_keys [:id, :name]
   defstruct [:id, :name, :kubeconfig]
 
-  def run(_switches) do
+  def run(switches) do
+    dbg(switches)
+
     target_cluster =
       cluster_selection()
 
@@ -14,7 +16,9 @@ defmodule RR.KubeConfig do
       |> get_kubeconfig!()
       |> save_to_file()
 
-    IO.puts(kf_path)
+    if Keyword.get(switches, :zsh, false) do
+      IO.puts(EEx.eval_file(Path.join(__DIR__, "zsh.eex"), kf_path: kf_path))
+    end
   end
 
   def cluster_selection() do

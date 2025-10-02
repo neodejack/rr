@@ -1,0 +1,2 @@
+# Export KUBECONFIG automatically
+export KUBECONFIG=<%= kf_path %>

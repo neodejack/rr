@@ -21,7 +21,8 @@ defmodule RR do
   end
 
   def parse_args() do
-    {switches, cmds, invalid} = OptionParser.parse(Burrito.Util.Args.argv(), strict: [])
+    {switches, cmds, invalid} =
+      OptionParser.parse(Burrito.Util.Args.argv(), strict: args_definition())
 
     case invalid do
       [] ->
@@ -35,7 +36,8 @@ defmodule RR do
 
   def args_definition() do
     [
-      help: :boolean
+      help: :boolean,
+      zsh: :boolean
     ]
   end
 end
