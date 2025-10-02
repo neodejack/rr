@@ -1,12 +1,16 @@
-defmodule RR.Kf do
+defmodule RR.KubeConfig do
+  alias RR.KubeConfig
   require Logger
 
+  @enforce_keys [:id, :name]
+  defstruct [:id, :name, :kubeconfig]
+
   def run(_switches) do
-    cluster_id =
+    target_cluster =
       cluster_selection()
 
     kf_path =
-      cluster_id
+      target_cluster
       |> get_kubeconfig!()
       |> save_to_file()
 
@@ -18,40 +22,30 @@ defmodule RR.Kf do
          clusters <- get_clusters!() do
       clusters
       |> select_cluster()
-      |> get_cluster_id_by_name(clusters)
     end
   end
 
-  def get_kubeconfig!(cluster_id) do
+  def get_kubeconfig!(target_cluster) do
     %Req.Response{status: status} =
-      resp = Req.post!(base_req(), url: "/v3/clusters/#{cluster_id}?action=generateKubeconfig")
+      resp =
+      Req.post!(base_req(), url: "/v3/clusters/#{target_cluster.id}?action=generateKubeconfig")
 
     case status do
       200 ->
-        resp.body["config"]
+        %{target_cluster | kubeconfig: resp.body["config"]}
 
       _ ->
         raise "`rancher cluster kf` failed"
     end
   end
 
-  def save_to_file(kubeconfig) do
+  def save_to_file(target_cluster) do
     with :ok <- File.mkdir_p(kubeconfig_dir()),
-         kb_path <- new_kubeconfig_file_path(),
-         :ok <- File.write(kb_path, kubeconfig) do
+         kb_path <- new_kubeconfig_file_path(target_cluster),
+         :ok <- File.write(kb_path, target_cluster.kubeconfig) do
       kb_path
     else
       {:error, err} -> raise "error when saving kubeconfig: #{err}"
-    end
-  end
-
-  def get_cluster_id_by_name(name, clusters) do
-    case Enum.find(clusters, &(&1.name == name)) do
-      nil ->
-        raise "user's selected cluster not found. user_selection: #{name}"
-
-      cluster ->
-        cluster.id
     end
   end
 
@@ -66,11 +60,11 @@ defmodule RR.Kf do
   end
 
   def parse_cluster(raw_clusters) do
-    raw_clusters |> Enum.map(&%{id: &1["id"], name: &1["name"]})
+    raw_clusters |> Enum.map(&%KubeConfig{id: &1["id"], name: &1["name"]})
   end
 
   def select_cluster(clusters) do
-    Owl.IO.select(Enum.map(clusters, & &1.name))
+    Owl.IO.select(clusters, render_as: & &1.name, label: "Select a cluster you want to access")
   end
 
   def base_req do
@@ -106,10 +100,10 @@ defmodule RR.Kf do
     Path.expand("~/.rr/secure-configs")
   end
 
-  def new_kubeconfig_file_path() do
+  def new_kubeconfig_file_path(kubeconfig) do
     Path.join(
       kubeconfig_dir(),
-      :crypto.strong_rand_bytes(10) |> Base.url_encode64(padding: false)
+      kubeconfig.name
     )
   end
 end

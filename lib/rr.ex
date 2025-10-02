@@ -11,7 +11,8 @@ defmodule RR do
 
     case cmd do
       "kf" ->
-        RR.Kf.run(switches)
+        RR.KubeConfig.run(switches)
+        :init.stop()
 
       cmd ->
         Logger.error("no such commands #{cmd}")
