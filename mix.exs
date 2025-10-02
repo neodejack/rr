@@ -24,6 +24,7 @@ defmodule RR.MixProject do
   defp deps do
     [
       {:burrito, git: "https://github.com/burrito-elixir/burrito.git", branch: "main"},
+      {:owl, "~> 0.9"},
       {:req, "~> 0.5.15"},
       {:toml, "~> 0.7.0"}
     ]

@@ -7,36 +7,34 @@ defmodule RR do
   end
 
   def run(_arg) do
-    IO.puts("starting")
-    IO.puts("#{rancher_logged_in?()}")
-    IO.puts("done")
-    :init.stop()
-  end
+    {switches, [cmd | _]} = parse_args()
 
-  def rancher_logged_in? do
-    case Req.get!(base_req(), url: "/v3/clusters") do
-      %Req.Response{status: 200} ->
-        true
+    case cmd do
+      "kf" ->
+        RR.Kf.run(switches)
 
-      %Req.Response{status: 401} = resp ->
-        Logger.error("not logged in or token has expired")
-        Logger.error("#{resp.body["message"]}")
-
-        Logger.info("to login, run: rancher login <Rancher Host> --token <Bearer Token>")
-        Logger.info("<Rancher Host> is https://cmgmt.truewatch.io/v3")
-
-        Logger.info(
-          "<Bearer Token> can be abtained at https://cmgmt.truewatch.io/dashboard/account/create-key"
-        )
-
-        false
+      cmd ->
+        Logger.error("no such commands #{cmd}")
+        :init.stop()
     end
   end
 
-  def base_req do
-    Req.new(
-      base_url: Application.get_env(:rr, :rancher_hostname),
-      auth: {:bearer, Application.get_env(:rr, :rancher_token)}
-    )
+  def parse_args() do
+    {switches, cmds, invalid} = OptionParser.parse(Burrito.Util.Args.argv(), strict: [])
+
+    case invalid do
+      [] ->
+        {switches, cmds}
+
+      [_ | _] ->
+        Logger.error("the arguments you provided are invalid")
+        :init.stop()
+    end
+  end
+
+  def args_definition() do
+    [
+      help: :boolean
+    ]
   end
 end
