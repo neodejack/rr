@@ -5,9 +5,9 @@ defmodule RR.KubeConfig do
   @enforce_keys [:id, :name]
   defstruct [:id, :name, :kubeconfig]
 
-  def run(switches) do
+  def run(switches, fuzzy_cluster_name) do
     target_cluster =
-      cluster_selection()
+      cluster_selection(fuzzy_cluster_name)
 
     kf_path =
       target_cluster
@@ -19,13 +19,10 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def cluster_selection() do
+  def cluster_selection(fuzzy_cluster_name) do
     with true <- rancher_logged_in?(),
          clusters <- get_clusters!() do
-      case clusters |> select_cluster() do
-        {:ok, selected_cluster_id} -> Enum.find(clusters, &(&1.id == selected_cluster_id))
-        {:error, msg} -> raise msg
-      end
+      select_cluster!(clusters, fuzzy_cluster_name)
     end
   end
 
@@ -67,22 +64,33 @@ defmodule RR.KubeConfig do
     raw_clusters |> Enum.map(&%KubeConfig{id: &1["id"], name: &1["name"]})
   end
 
-  def select_cluster(clusters) do
-    {:ok, tui} =
-      Breeze.Server.start_link(
-        view: RR.Cmds.Tui.SelectCluster,
-        hide_cursor: true,
-        start_opts: [receiver: self(), clusters: clusters]
-      )
+  def select_cluster!(clusters, fuzzy_cluster_name) do
+    case Enum.filter(clusters, &String.contains?(&1.name, fuzzy_cluster_name)) do
+      [] ->
+        Logger.error("no match were found for the cluster name '#{fuzzy_cluster_name}'")
+        raise "error"
 
-    receive do
-      {:selected, selected_cluster_id} ->
-        GenServer.stop(tui)
-        {:ok, selected_cluster_id}
+      [cluster] ->
+        cluster
 
-      {:quit} ->
-        GenServer.stop(tui)
-        {:error, "user quited"}
+      [_ | _] = matched_clusters ->
+        Logger.error(
+          "more than one matches were found for the cluster name '#{fuzzy_cluster_name}'
+          these matches are found:"
+        )
+
+        error_string =
+          Enum.reduce(matched_clusters, "", fn cluster, error_string ->
+            error_string <> cluster.name <> "\n"
+          end)
+
+        Logger.error("#{error_string}")
+
+        Logger.error(
+          "please make your cluster name more precise so that there will only be one single match"
+        )
+
+        raise "error"
     end
   end
 
