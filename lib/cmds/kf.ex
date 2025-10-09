@@ -6,8 +6,6 @@ defmodule RR.KubeConfig do
   defstruct [:id, :name, :kubeconfig]
 
   def run(switches) do
-    dbg(switches)
-
     target_cluster =
       cluster_selection()
 
@@ -24,8 +22,10 @@ defmodule RR.KubeConfig do
   def cluster_selection() do
     with true <- rancher_logged_in?(),
          clusters <- get_clusters!() do
-      clusters
-      |> select_cluster()
+      case clusters |> select_cluster() do
+        {:ok, selected_cluster_id} -> Enum.find(clusters, &(&1.id == selected_cluster_id))
+        {:error, msg} -> raise msg
+      end
     end
   end
 
@@ -68,7 +68,22 @@ defmodule RR.KubeConfig do
   end
 
   def select_cluster(clusters) do
-    Owl.IO.select(clusters, render_as: & &1.name, label: "Select a cluster you want to access")
+    {:ok, tui} =
+      Breeze.Server.start_link(
+        view: RR.Cmds.Tui.SelectCluster,
+        hide_cursor: true,
+        start_opts: [receiver: self(), clusters: clusters]
+      )
+
+    receive do
+      {:selected, selected_cluster_id} ->
+        GenServer.stop(tui)
+        {:ok, selected_cluster_id}
+
+      {:quit} ->
+        GenServer.stop(tui)
+        {:error, "user quited"}
+    end
   end
 
   def base_req do
