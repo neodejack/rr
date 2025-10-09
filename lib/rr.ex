@@ -7,11 +7,11 @@ defmodule RR do
   end
 
   def run(_arg) do
-    {switches, [cmd | _]} = parse_args()
+    {switches, [cmd | sub_cmds]} = parse_args()
 
     case cmd do
       "kf" ->
-        RR.KubeConfig.run(switches)
+        RR.KubeConfig.run(switches, sub_cmds)
         :init.stop()
 
       cmd ->
