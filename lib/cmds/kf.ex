@@ -15,7 +15,7 @@ defmodule RR.KubeConfig do
       |> save_to_file()
 
     if Keyword.get(switches, :zsh, false) do
-      IO.puts(EEx.eval_file(Path.join(__DIR__, "zsh.eex"), kf_path: kf_path))
+      IO.puts(EEx.eval_file(zsh_template_path(), kf_path: kf_path))
     end
   end
 
@@ -132,5 +132,11 @@ defmodule RR.KubeConfig do
       kubeconfig_dir(),
       kubeconfig.name
     )
+  end
+
+  defp zsh_template_path do
+    :code.priv_dir(:rr)
+    |> to_string()
+    |> Path.join("templates/zsh.eex")
   end
 end
