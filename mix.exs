@@ -34,18 +34,21 @@ defmodule RR.MixProject do
 
   def releases do
     [
-      rr_cli_app: [
-        steps: [:assemble, &Burrito.wrap/1],
-        burrito: [
-          targets: [
-            macos: [os: :darwin, cpu: :x86_64],
-            macos_arm: [os: :darwin, cpu: :aarch64],
-            linux: [os: :linux, cpu: :x86_64],
-            linux_arm: [os: :linux, cpu: :aarch64],
-            windows: [os: :windows, cpu: :x86_64]
+      {
+        :rr,
+        [
+          steps: [:assemble, &Burrito.wrap/1],
+          burrito: [
+            targets: [
+              macos: [os: :darwin, cpu: :x86_64],
+              macos_arm: [os: :darwin, cpu: :aarch64],
+              linux: [os: :linux, cpu: :x86_64],
+              linux_arm: [os: :linux, cpu: :aarch64],
+              windows: [os: :windows, cpu: :x86_64]
+            ]
           ]
         ]
-      ]
+      }
     ]
   end
 end
