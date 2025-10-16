@@ -16,7 +16,7 @@ defmodule RR.MixProject do
   def application do
     [
       mod: {RR.Application, []},
-      extra_applications: [:logger]
+      extra_applications: [:logger, :runtime_tools, :observer]
     ]
   end
 
