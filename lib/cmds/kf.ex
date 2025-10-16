@@ -1,11 +1,41 @@
 defmodule RR.KubeConfig do
   alias RR.KubeConfig
+  alias RR.Shell
   require Logger
 
   @enforce_keys [:id, :name]
   defstruct [:id, :name, :kubeconfig]
 
-  def run(switches, fuzzy_cluster_name) do
+  def parse_args(args) do
+    case OptionParser.parse(args, strict: args_definition()) do
+      {switches, [cluster], []} ->
+        {switches, cluster}
+
+      {_switches, [_ | _] = clusters, []} ->
+        Shell.raise([
+          "you provided more than one clusters: ",
+          Enum.intersperse(clusters, ", ")
+        ])
+
+      {_switches, _clusters, invalid_args} ->
+        invalids = invalid_args |> Enum.map(fn {arg, _value} -> arg end)
+
+        Shell.raise([
+          "the arguments you provided are invalid: ",
+          invalids
+        ])
+    end
+  end
+
+  def args_definition() do
+    [
+      zsh: :boolean
+    ]
+  end
+
+  def run(args) do
+    {switches, fuzzy_cluster_name} = parse_args(args)
+
     target_cluster =
       cluster_selection(fuzzy_cluster_name)
 
@@ -15,7 +45,7 @@ defmodule RR.KubeConfig do
       |> save_to_file()
 
     if Keyword.get(switches, :zsh, false) do
-      IO.puts(EEx.eval_file(zsh_template_path(), kf_path: kf_path))
+      Shell.info(EEx.eval_file(zsh_template_path(), kf_path: kf_path))
     end
   end
 
@@ -67,30 +97,25 @@ defmodule RR.KubeConfig do
   def select_cluster!(clusters, fuzzy_cluster_name) do
     case Enum.filter(clusters, &String.contains?(&1.name, fuzzy_cluster_name)) do
       [] ->
-        Logger.error("no match were found for the cluster name '#{fuzzy_cluster_name}'")
-        raise "error"
+        Shell.raise("no match were found for the cluster name '#{fuzzy_cluster_name}'")
 
       [cluster] ->
         cluster
 
       [_ | _] = matched_clusters ->
-        Logger.error(
-          "more than one matches were found for the cluster name '#{fuzzy_cluster_name}'
-          these matches are found:"
+        Shell.error(
+          "more than one matches were found for the cluster name '#{fuzzy_cluster_name}'\nthese matches are found:"
         )
 
-        error_string =
-          Enum.reduce(matched_clusters, "", fn cluster, error_string ->
-            error_string <> cluster.name <> "\n"
-          end)
+        error_char_data =
+          matched_clusters
+          |> Enum.map(&[" - ", &1.name, "\n"])
 
-        Logger.error("#{error_string}")
+        Shell.error("#{error_char_data}")
 
-        Logger.error(
+        Shell.raise(
           "please make your cluster name more precise so that there will only be one single match"
         )
-
-        raise "error"
     end
   end
 
@@ -109,13 +134,13 @@ defmodule RR.KubeConfig do
         true
 
       %Req.Response{status: 401} = resp ->
-        Logger.error("not logged in or token has expired")
-        Logger.error("#{resp.body["message"]}")
+        Shell.error("not logged in or token has expired")
+        Shell.error("#{resp.body["message"]}")
 
-        Logger.info("to login, run: rancher login <Rancher Host> --token <Bearer Token>")
-        Logger.info("<Rancher Host> is https://cmgmt.truewatch.io/v3")
+        Shell.error("to login, run: rancher login <Rancher Host> --token <Bearer Token>")
+        Shell.error("<Rancher Host> is https://cmgmt.truewatch.io/v3")
 
-        Logger.info(
+        Shell.error(
           "<Bearer Token> can be abtained at https://cmgmt.truewatch.io/dashboard/account/create-key"
         )
 

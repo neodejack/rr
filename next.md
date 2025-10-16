@@ -1,19 +1,7 @@
-`--setup-zsh` command used when guiding user to set up
-
-- used as: `rr kf --setup-zsh` >> ~/.zshrc
-- basically it returns a zsh function like
-
-```
-kconnect() {
-  eval "$(burrito_out/rr_cli_app_macos_arm kf --zsh "$1")"
-}
-```
-
----
-
 refactor logger and stdout:
 
 - a module to do intentional stdout
+- if crash, the cli should just crash
 - log should go to a log file
 
 ---

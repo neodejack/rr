@@ -7,37 +7,16 @@ defmodule RR do
   end
 
   def run(_arg) do
-    {switches, [cmd | sub_cmds]} = parse_args()
+    [cmd | args] = Burrito.Util.Args.argv()
 
     case cmd do
       "kf" ->
-        RR.KubeConfig.run(switches, sub_cmds)
-        :init.stop()
+        RR.KubeConfig.run(args)
 
       cmd ->
         Logger.error("no such commands #{cmd}")
-        :init.stop()
     end
-  end
 
-  def parse_args() do
-    {switches, cmds, invalid} =
-      OptionParser.parse(Burrito.Util.Args.argv(), strict: args_definition())
-
-    case invalid do
-      [] ->
-        {switches, cmds}
-
-      [_ | _] ->
-        Logger.error("the arguments you provided are invalid")
-        :init.stop()
-    end
-  end
-
-  def args_definition() do
-    [
-      help: :boolean,
-      zsh: :boolean
-    ]
+    System.halt(0)
   end
 end
