@@ -24,7 +24,7 @@ defmodule RR.MixProject do
   defp deps do
     [
       {:burrito, git: "https://github.com/burrito-elixir/burrito.git", branch: "main"},
-      {:owl, "~> 0.9"},
+      {:owl, "~> 0.13"},
       {:req, "~> 0.5.15"},
       {:breeze,
        git: "https://github.com/neodejack/breeze.git", branch: "default-focus-and-terminate/2"},

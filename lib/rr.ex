@@ -13,6 +13,9 @@ defmodule RR do
       "kf" ->
         RR.KubeConfig.run(args)
 
+      "login" ->
+        RR.Login.run(args)
+
       cmd ->
         Logger.error("no such commands #{cmd}")
     end
