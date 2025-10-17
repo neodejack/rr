@@ -57,16 +57,24 @@ defmodule RR.KubeConfig do
   end
 
   def get_kubeconfig!(target_cluster) do
+    url = "/v3/clusters/#{target_cluster.id}?action=generateKubeconfig"
+
     %Req.Response{status: status} =
       resp =
-      Req.post!(base_req(), url: "/v3/clusters/#{target_cluster.id}?action=generateKubeconfig")
+      Req.post!(base_req(), url: url)
 
     case status do
       200 ->
         %{target_cluster | kubeconfig: resp.body["config"]}
 
       _ ->
-        raise "`rancher cluster kf` failed"
+        Shell.raise([
+          "http request to rancher api failed.\n",
+          "request url: ",
+          url,
+          "\nerror response:\n",
+          inspect(resp.body)
+        ])
     end
   end
 
@@ -76,7 +84,7 @@ defmodule RR.KubeConfig do
          :ok <- File.write(kb_path, target_cluster.kubeconfig) do
       kb_path
     else
-      {:error, err} -> raise "error when saving kubeconfig: #{err}"
+      {:error, err} -> Shell.raise(["error when saving kubeconfig:\n", err])
     end
   end
 
