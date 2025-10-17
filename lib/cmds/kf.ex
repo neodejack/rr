@@ -6,7 +6,7 @@ defmodule RR.KubeConfig do
   @enforce_keys [:id, :name]
   defstruct [:id, :name, :kubeconfig]
 
-  def parse_args(args) do
+  def parse_args!(args) do
     case OptionParser.parse(args, strict: args_definition()) do
       {switches, [cluster], []} ->
         {switches, cluster}
@@ -34,7 +34,7 @@ defmodule RR.KubeConfig do
   end
 
   def run(args) do
-    {switches, fuzzy_cluster_name} = parse_args(args)
+    {switches, fuzzy_cluster_name} = parse_args!(args)
 
     target_cluster =
       cluster_selection(fuzzy_cluster_name)
@@ -99,7 +99,7 @@ defmodule RR.KubeConfig do
   end
 
   def parse_cluster(raw_clusters) do
-    raw_clusters |> Enum.map(&%KubeConfig{id: &1["id"], name: &1["name"]})
+    raw_clusters |> Enum.map(&%__MODULE__{id: &1["id"], name: &1["name"]})
   end
 
   def select_cluster!(clusters, fuzzy_cluster_name) do
@@ -136,6 +136,7 @@ defmodule RR.KubeConfig do
     )
   end
 
+  ## TODO: already implemented with RR.Login.is_validate_auth!/1
   def rancher_logged_in? do
     case Req.get!(base_req(), url: "/v3/clusters") do
       %Req.Response{status: 200} ->
@@ -146,7 +147,7 @@ defmodule RR.KubeConfig do
         Shell.error("#{resp.body["message"]}")
 
         Shell.error("to login, run: rancher login <Rancher Host> --token <Bearer Token>")
-        Shell.error("<Rancher Host> is https://cmgmt.truewatch.io/v3")
+        Shell.error("<Rancher Host> is https://cmgmt.truewatch.io")
 
         Shell.error(
           "<Bearer Token> can be abtained at https://cmgmt.truewatch.io/dashboard/account/create-key"
