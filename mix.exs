@@ -27,8 +27,7 @@ defmodule RR.MixProject do
       {:owl, "~> 0.13"},
       {:req, "~> 0.5.15"},
       {:breeze,
-       git: "https://github.com/neodejack/breeze.git", branch: "default-focus-and-terminate/2"},
-      {:toml, "~> 0.7.0"}
+       git: "https://github.com/neodejack/breeze.git", branch: "default-focus-and-terminate/2"}
     ]
   end
 
