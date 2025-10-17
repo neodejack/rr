@@ -14,3 +14,7 @@ a `rr login` command to input auth token, and then immediately verify if the tok
 a response middleware to deal with auth token expiration
 
 prompt user to run `rr login`
+
+---
+
+maybe use https://hexdocs.pm/elixir/URI.html#new/1 as cast function for Owl.IO.input/1
