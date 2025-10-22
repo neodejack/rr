@@ -24,12 +24,7 @@ defmodule RR.Config do
            JSON.decode(binary) do
       term
     else
-      {:error, reason} ->
-        IO.puts(file())
-        IO.puts(reason)
-
       _ ->
-        IO.puts("hi")
         %{}
     end
   end
@@ -52,7 +47,7 @@ defmodule RR.Config do
     if override_dir == nil or override_dir == "" do
       Path.expand("~/.rr")
     else
-      override_dir
+      Path.expand(override_dir)
     end
   end
 
