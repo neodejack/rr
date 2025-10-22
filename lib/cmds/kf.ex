@@ -40,12 +40,14 @@ defmodule RR.KubeConfig do
   def run(args) do
     {switches, fuzzy_cluster_name} = parse_args!(args)
 
+    base_req = base_req!()
+
     target_cluster =
-      cluster_selection(fuzzy_cluster_name)
+      cluster_selection(fuzzy_cluster_name, base_req)
 
     kf_path =
       target_cluster
-      |> get_kubeconfig!()
+      |> get_kubeconfig!(base_req)
       |> save_to_file()
 
     if Keyword.get(switches, :zsh, false) do
@@ -53,19 +55,16 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def cluster_selection(fuzzy_cluster_name) do
-    with true <- rancher_logged_in?(),
-         clusters <- get_clusters!() do
-      select_cluster!(clusters, fuzzy_cluster_name)
-    end
+  def cluster_selection(fuzzy_cluster_name, base_req) do
+    get_clusters!(base_req) |> select_cluster!(fuzzy_cluster_name)
   end
 
-  def get_kubeconfig!(target_cluster) do
+  def get_kubeconfig!(target_cluster, base_req) do
     url = "/v3/clusters/#{target_cluster.id}?action=generateKubeconfig"
 
     %Req.Response{status: status} =
       resp =
-      Req.post!(base_req(), url: url)
+      Req.post!(base_req, url: url)
 
     case status do
       200 ->
@@ -92,8 +91,8 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def get_clusters!() do
-    case Req.get!(base_req(), url: "/v3/clusters") do
+  def get_clusters!(base_req) do
+    case Req.get!(base_req, url: "/v3/clusters") do
       %Req.Response{status: 200} = resp ->
         parse_cluster(resp.body["data"])
 
@@ -131,33 +130,19 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def base_req do
-    auth = RR.Config.Auth.get_auth()
+  def base_req! do
+    with {:ok, auth} <- RR.Config.Auth.get_auth(),
+         true <- RR.Config.Auth.is_valid_auth?(auth) do
+      Req.new(
+        base_url: auth.rancher_hostname,
+        auth: {:bearer, auth.rancher_token}
+      )
+    else
+      {:error, err} ->
+        Shell.raise(err)
 
-    Req.new(
-      base_url: auth.rancher_hostname,
-      auth: {:bearer, auth.rancher_token}
-    )
-  end
-
-  ## TODO: already implemented with RR.Login.is_validate_auth!/1
-  def rancher_logged_in? do
-    case Req.get!(base_req(), url: "/v3/clusters") do
-      %Req.Response{status: 200} ->
-        true
-
-      %Req.Response{status: 401} = resp ->
-        Shell.error("not logged in or token has expired")
-        Shell.error("#{resp.body["message"]}")
-
-        Shell.error("to login, run: rancher login <Rancher Host> --token <Bearer Token>")
-        Shell.error("<Rancher Host> is https://cmgmt.truewatch.io")
-
-        Shell.error(
-          "<Bearer Token> can be abtained at https://cmgmt.truewatch.io/dashboard/account/create-key"
-        )
-
-        false
+      false ->
+        Shell.raise("")
     end
   end
 

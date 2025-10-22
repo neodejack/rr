@@ -8,10 +8,23 @@ defmodule RR.Login do
   alias RR.Config.Auth
 
   def run(args) do
-    parse_args!(args)
+    with :ok <- parse_args!(args),
+         {:ok, auth} <- Auth.get_auth(),
+         true <- Auth.is_valid_auth?(auth) do
+      case Owl.IO.confirm(
+             message:
+               "you already have a valid auth config, are you sure you want to overwrite it?"
+           ) do
+        true ->
+          login()
 
-    Auth.get_auth()
-    |> login()
+        false ->
+          :ok
+      end
+    else
+      {:error, _} -> login()
+      false -> login()
+    end
   end
 
   def parse_args!(args) do
@@ -24,39 +37,23 @@ defmodule RR.Login do
     end
   end
 
-  def login(auth) do
-    auth |> prompt() |> is_validate_auth!() |> write_to_config_file()
-    :ok
-  end
+  def login() do
+    auth = prompt()
 
-  def prompt(auth) do
-    hostname = Owl.IO.input(label: "rancher hostname")
-    token = Owl.IO.input(label: "rancher token (in the form of token-xxxx:xxxxxx)", secret: true)
-    %{auth | rancher_hostname: hostname, rancher_token: token}
-  end
+    case Auth.is_valid_auth?(auth) do
+      true ->
+        Shell.info("auth info successfully validated and saved")
+        Auth.put_auth(auth)
 
-  def base_req(auth) do
-    Req.new(
-      base_url: auth.rancher_hostname,
-      auth: {:bearer, auth.rancher_token}
-    )
-  end
-
-  def is_validate_auth!(auth) do
-    case Req.get!(base_req(auth), url: "/v3/clusters") do
-      %Req.Response{status: 200} ->
-        auth
-
-      %Req.Response{status: 401} ->
-        Shell.error("validation of auth config failed")
-        Shell.raise("make sure your hostname and token are correct and try again")
-
-      resp ->
-        Shell.raise(["unexpected error when validating auth\n", inspect(resp)])
+      false ->
+        Shell.raise(" ")
     end
   end
 
-  def write_to_config_file(auth) do
-    Auth.put_auth(auth)
+  def prompt() do
+    hostname = Owl.IO.input(label: "rancher hostname")
+    token = Owl.IO.input(label: "rancher token (in the form of token-xxxx:xxxxxx)", secret: true)
+
+    %Auth{rancher_hostname: hostname, rancher_token: token}
   end
 end
