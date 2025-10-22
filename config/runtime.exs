@@ -1,7 +1,8 @@
 import Config
 
-if config_env() == :prod or :dev do
-  config_json = Path.expand("~/.rr/config.json") |> File.read!() |> JSON.decode!()
+if config_env() == :prod or config_env() == :dev do
+  config_path = Path.expand("~/.rr/config.json")
+  config_json = config_path |> File.read!() |> JSON.decode!()
 
   parse_func = fn config ->
     case config do
@@ -20,5 +21,6 @@ if config_env() == :prod or :dev do
 
   config :rr, RR,
     rancher_hostname: config["rancher_hostname"],
-    rancher_token: config["rancher_token"]
+    rancher_token: config["rancher_token"],
+    config_path: config_path
 end

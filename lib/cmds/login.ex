@@ -7,7 +7,8 @@ defmodule RR.Login do
   alias RR.Shell
 
   @enforce_keys [:state]
-  defstruct [:state, :hostname, :token]
+  @derive {JSON.Encoder, only: [:rancher_hostname, :rancher_token]}
+  defstruct [:state, :rancher_hostname, :rancher_token]
 
   def run(args) do
     parse_args!(args)
@@ -28,18 +29,19 @@ defmodule RR.Login do
 
   def login(%__MODULE__{state: :no_auth_config} = auth) do
     auth |> prompt() |> is_validate_auth!() |> write_to_config_file()
+    :ok
   end
 
   def prompt(auth) do
     hostname = Owl.IO.input(label: "rancher hostname")
     token = Owl.IO.input(label: "rancher token (in the form of token-xxxx:xxxxxx)", secret: true)
-    %{auth | hostname: hostname, token: token}
+    %{auth | rancher_hostname: hostname, rancher_token: token}
   end
 
   def base_req(auth) do
     Req.new(
-      base_url: auth.hostname,
-      auth: {:bearer, auth.token}
+      base_url: auth.rancher_hostname,
+      auth: {:bearer, auth.rancher_token}
     )
   end
 
@@ -58,5 +60,8 @@ defmodule RR.Login do
   end
 
   def write_to_config_file(auth) do
+    auth_json = JSON.encode!(auth)
+    File.write!(Application.get_env(:rr, RR)[:config_path], auth_json)
+    auth
   end
 end
