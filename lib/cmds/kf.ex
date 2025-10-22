@@ -1,5 +1,4 @@
 defmodule RR.KubeConfig do
-  alias RR.KubeConfig
   alias RR.Shell
   require Logger
 
