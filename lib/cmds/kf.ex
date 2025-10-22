@@ -10,18 +10,23 @@ defmodule RR.KubeConfig do
       {switches, [cluster], []} ->
         {switches, cluster}
 
-      {_switches, [_ | _] = clusters, []} ->
-        Shell.raise([
-          "you provided more than one clusters: ",
-          Enum.intersperse(clusters, ", ")
-        ])
-
-      {_switches, _clusters, invalid_args} ->
+      {_switches, [_cluster], invalid_args} ->
         invalids = invalid_args |> Enum.map(fn {arg, _value} -> arg end)
 
         Shell.raise([
           "the arguments you provided are invalid: ",
           invalids
+        ])
+
+      {_switches, [], _} ->
+        Shell.raise([
+          "you didn't specify a fuzzy cluster name"
+        ])
+
+      {_switches, [_ | _] = clusters, _} ->
+        Shell.raise([
+          "you provided more than one clusters: ",
+          Enum.intersperse(clusters, ", ")
         ])
     end
   end
@@ -127,11 +132,11 @@ defmodule RR.KubeConfig do
   end
 
   def base_req do
-    conf = Application.get_env(:rr, RR)
+    auth = RR.Config.Auth.get_auth()
 
     Req.new(
-      base_url: conf[:rancher_hostname],
-      auth: {:bearer, conf[:rancher_token]}
+      base_url: auth.rancher_hostname,
+      auth: {:bearer, auth.rancher_token}
     )
   end
 

@@ -5,15 +5,12 @@ defmodule RR.Login do
 
   """
   alias RR.Shell
-
-  @enforce_keys [:state]
-  @derive {JSON.Encoder, only: [:rancher_hostname, :rancher_token]}
-  defstruct [:state, :rancher_hostname, :rancher_token]
+  alias RR.Config.Auth
 
   def run(args) do
     parse_args!(args)
 
-    %__MODULE__{state: :no_auth_config}
+    Auth.get_auth()
     |> login()
   end
 
@@ -27,7 +24,7 @@ defmodule RR.Login do
     end
   end
 
-  def login(%__MODULE__{state: :no_auth_config} = auth) do
+  def login(auth) do
     auth |> prompt() |> is_validate_auth!() |> write_to_config_file()
     :ok
   end
@@ -60,8 +57,6 @@ defmodule RR.Login do
   end
 
   def write_to_config_file(auth) do
-    auth_json = JSON.encode!(auth)
-    File.write!(Application.get_env(:rr, RR)[:config_path], auth_json)
-    auth
+    Auth.put_auth(auth)
   end
 end
