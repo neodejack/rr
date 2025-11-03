@@ -1,13 +1,11 @@
 refactor logger and stdout:
 
-- a module to do intentional stdout
 - if crash, the cli should just crash
-- log should go to a log file
+- it shouldn't generate erl_dump file or generate it to a specific location
 
 ---
 
-first time setting up token user experience
-a `rr login` command to input auth token, and then immediately verify if the token is usable
+capture control-c to exit instead of showing the iex menu
 
 ---
 
