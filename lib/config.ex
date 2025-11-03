@@ -41,7 +41,7 @@ defmodule RR.Config do
     Path.join(home_dir(), @config) |> Path.expand()
   end
 
-  defp home_dir() do
+  def home_dir() do
     override_dir = System.get_env("RR_HOME")
 
     if override_dir == nil or override_dir == "" do

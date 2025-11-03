@@ -1,5 +1,6 @@
 defmodule RR.KubeConfig do
   alias RR.Shell
+  alias RR.Config
   require Logger
 
   @enforce_keys [:id, :name]
@@ -49,6 +50,8 @@ defmodule RR.KubeConfig do
       target_cluster
       |> get_kubeconfig!(base_req)
       |> save_to_file()
+
+    Shell.error(["kubeconfig is saved to: ", kf_path])
 
     if Keyword.get(switches, :zsh, false) do
       Shell.info(EEx.eval_file(zsh_template_path(), kf_path: kf_path))
@@ -146,8 +149,8 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def kubeconfig_dir() do
-    Path.expand("~/.rr/secure-configs")
+  defp kubeconfig_dir() do
+    Path.join(Config.home_dir(), "kubeconfigs")
   end
 
   def new_kubeconfig_file_path(kubeconfig) do
