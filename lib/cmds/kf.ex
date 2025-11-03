@@ -34,7 +34,8 @@ defmodule RR.KubeConfig do
 
   def args_definition() do
     [
-      zsh: :boolean
+      zsh: :boolean,
+      new: :boolean
     ]
   end
 
@@ -55,6 +56,19 @@ defmodule RR.KubeConfig do
 
     if Keyword.get(switches, :zsh, false) do
       Shell.info(EEx.eval_file(zsh_template_path(), kf_path: kf_path))
+    end
+  end
+
+  def existing_kf_is_valid?(target_cluster) do
+    path = kubeconfig_file_path(target_cluster)
+
+    with true <- File.exists?(path) do
+      case System.cmd("kubectl", ["get", "pods", "--kubeconfig=#{path}"], stderr_to_stdout: true) do
+        {_, 0} -> true
+        {_, 1} -> false
+      end
+    else
+      false -> false
     end
   end
 
@@ -86,7 +100,7 @@ defmodule RR.KubeConfig do
 
   def save_to_file(target_cluster) do
     with :ok <- File.mkdir_p(kubeconfig_dir()),
-         kb_path <- new_kubeconfig_file_path(target_cluster),
+         kb_path <- kubeconfig_file_path(target_cluster),
          :ok <- File.write(kb_path, target_cluster.kubeconfig) do
       kb_path
     else
@@ -153,7 +167,7 @@ defmodule RR.KubeConfig do
     Path.join(Config.home_dir(), "kubeconfigs")
   end
 
-  def new_kubeconfig_file_path(kubeconfig) do
+  def kubeconfig_file_path(kubeconfig) do
     Path.join(
       kubeconfig_dir(),
       kubeconfig.name
