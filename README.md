@@ -19,19 +19,28 @@ rr login
 some useful commands
 
 ```bash
-# check local kubeconfig first, if the local kubeconfig is not valid, then download kubeconfig for us_west cluster, save it locally, and output path of saved kubeconfig to stdout
+# check local kubeconfig first, if the local kubeconfig is not valid, then
+# download kubeconfig for us_west cluster, save it locally, and output path of
+# saved kubeconfig to stdout
 rr kf us_west
-# check local kubeconfig first, if the local kubeconfig is not valid, then download kubeconfig for us_west cluster, save it locally, and output shell command to use the kubeconfig in the current shell to stdout
+
+# check local kubeconfig first, if the local kubeconfig is not valid, then
+# download kubeconfig for us_west cluster, save it locally, and output shell
+# command to use the kubeconfig in the current shell to stdout
 rr kf us_west --sh
-# download kubeconfig for us_west cluster, save it locally (overwriting the local kubeconfig whether it's still valid or not), and output shell command to use the kubeconfig in the current shell to stdout
+
+# download kubeconfig for us_west cluster, save it locally (overwriting the
+# local kubeconfig whether it's still valid or not), and output shell command to
+# use the kubeconfig in the current shell to stdout
 rr kf us_west --sh --new
+
 ```
 
 3. i like to set up this thing in my .zshrc
 
 ```bash
 ## put this somewhere in your .zshrc/.bashrc
-hi () {
+hi() {
     eval "$(rr kf --sh "$1")"
 }
 ```
