@@ -7,66 +7,88 @@ defmodule RR.KubeConfig do
   defstruct [:id, :name, :kubeconfig]
 
   def run(args) do
-    {switches, fuzzy_cluster_name} = parse_args!(args)
+    {switches, cluster_name_substring} = parse_args!(args)
 
-    if Keyword.has_key?(switches, :new) and !Keyword.has_key?(switches, :zsh) do
-      Shell.raise(["--new can only be used together with --zsh"])
+    if Keyword.has_key?(switches, :help) do
+      render_help()
     end
 
     target_cluster =
       base_req!()
       |> get_clusters!()
-      |> select_cluster!(fuzzy_cluster_name)
+      |> select_cluster!(cluster_name_substring)
 
     execute(
       target_cluster,
       kf_valid?(target_cluster),
       Keyword.get(switches, :new, false),
-      Keyword.get(switches, :zsh, false)
+      Keyword.get(switches, :sh, false)
     )
   end
 
   def parse_args!(args) do
-    case OptionParser.parse(args, strict: args_definition()) do
+    case OptionParser.parse(args, args_definition()) do
       {switches, [cluster], []} ->
         {switches, cluster}
 
       {_switches, [_cluster], invalid_args} ->
         invalids = invalid_args |> Enum.map(fn {arg, _value} -> arg end)
 
-        Shell.raise([
+        Shell.error([
           "the arguments you provided are invalid: ",
           invalids
         ])
 
+        render_help()
+
       {_switches, [], _} ->
-        Shell.raise([
-          "you didn't specify a fuzzy cluster name"
-        ])
+        render_help()
 
       {_switches, [_ | _] = clusters, _} ->
         Shell.raise([
           "you provided more than one clusters: ",
           Enum.intersperse(clusters, ", ")
         ])
+
+        render_help()
     end
   end
 
   def args_definition() do
     [
-      zsh: :boolean,
-      new: :boolean
+      strict: [
+        help: :boolean,
+        sh: :boolean,
+        new: :boolean
+      ],
+      alias: [h: :help]
     ]
   end
 
-  def execute(kubeconfig, existing_kf_valid?, overwrite_existing_kf, generate_zsh_template?)
+  def render_help() do
+    Shell.raise("""
+    obtain and manage kubeconfigs from rancher
+
+    USAGE:
+      rr kf <cluster_name_substring> [flags]
+
+      rr trys to match <cluster_name_substring> as substring of the cluster names, and will only proceed if there's one exact match.
+      no match or more than one match will lead to error.
+      
+    FlAGS:
+      --new Overwrite existing valid kubeconfigs.
+      --sh Generate `export KUBECONIFG=` shell command to use a kubeconfig in the current shell.
+    """)
+  end
+
+  def execute(kubeconfig, existing_kf_valid?, overwrite_existing_kf, generate_sh_template?)
 
   def execute(kubeconifg, false, _, true) do
     kubeconifg
     |> get_kubeconfig!(base_req!())
     |> save_to_file!()
 
-    zsh_template_path()
+    sh_template_path()
     |> EEx.eval_file(kf_path: kubeconfig_file_path(kubeconifg))
     |> Shell.info()
   end
@@ -75,20 +97,19 @@ defmodule RR.KubeConfig do
     kubeconifg
     |> get_kubeconfig!(base_req!())
     |> save_to_file!()
+    |> Shell.info()
   end
 
   def execute(kubeconifg, true, false, true) do
-    zsh_template_path()
+    sh_template_path()
     |> EEx.eval_file(kf_path: kubeconfig_file_path(kubeconifg))
     |> Shell.info()
   end
 
   def execute(kubeconifg, true, false, false) do
-    Shell.info_stderr([
-      "kubeconfig file at ",
-      kubeconfig_file_path(kubeconifg),
-      " is already valid"
-    ])
+    kubeconifg
+    |> kubeconfig_file_path()
+    |> Shell.info()
   end
 
   def execute(kubeconifg, true, true, true) do
@@ -96,13 +117,16 @@ defmodule RR.KubeConfig do
     |> get_kubeconfig!(base_req!())
     |> save_to_file!()
 
-    zsh_template_path()
+    sh_template_path()
     |> EEx.eval_file(kf_path: kubeconfig_file_path(kubeconifg))
     |> Shell.info()
   end
 
-  def execute(_kubeconifg, true, true, false) do
-    Shell.raise(["--new can only be used together with --zsh"])
+  def execute(kubeconifg, true, true, false) do
+    kubeconifg
+    |> get_kubeconfig!(base_req!())
+    |> save_to_file!()
+    |> Shell.info()
   end
 
   def kf_valid?(kubeconifg) do
@@ -164,17 +188,17 @@ defmodule RR.KubeConfig do
     raw_clusters |> Enum.map(&%__MODULE__{id: &1["id"], name: &1["name"]})
   end
 
-  def select_cluster!(clusters, fuzzy_cluster_name) do
-    case Enum.filter(clusters, &String.contains?(&1.name, fuzzy_cluster_name)) do
+  def select_cluster!(clusters, cluster_name_substring) do
+    case Enum.filter(clusters, &String.contains?(&1.name, cluster_name_substring)) do
       [] ->
-        Shell.raise("no match were found for the cluster name '#{fuzzy_cluster_name}'")
+        Shell.raise("no match were found for the cluster name '#{cluster_name_substring}'")
 
       [cluster] ->
         cluster
 
       [_ | _] = matched_clusters ->
         Shell.error(
-          "more than one matches were found for the cluster name '#{fuzzy_cluster_name}'\nthese matches are found:"
+          "more than one matches were found for the cluster name '#{cluster_name_substring}'\nthese matches are found:"
         )
 
         error_char_data =
@@ -216,9 +240,9 @@ defmodule RR.KubeConfig do
     )
   end
 
-  defp zsh_template_path do
+  defp sh_template_path do
     :code.priv_dir(:rr)
     |> to_string()
-    |> Path.join("templates/zsh.eex")
+    |> Path.join("templates/sh.eex")
   end
 end
