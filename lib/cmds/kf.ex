@@ -6,6 +6,26 @@ defmodule RR.KubeConfig do
   @enforce_keys [:id, :name]
   defstruct [:id, :name, :kubeconfig]
 
+  def run(args) do
+    {switches, fuzzy_cluster_name} = parse_args!(args)
+
+    if Keyword.has_key?(switches, :new) and !Keyword.has_key?(switches, :zsh) do
+      Shell.raise(["--new can only be used together with --zsh"])
+    end
+
+    target_cluster =
+      base_req!()
+      |> get_clusters!()
+      |> select_cluster!(fuzzy_cluster_name)
+
+    execute(
+      target_cluster,
+      kf_valid?(target_cluster),
+      Keyword.get(switches, :new, false),
+      Keyword.get(switches, :zsh, false)
+    )
+  end
+
   def parse_args!(args) do
     case OptionParser.parse(args, strict: args_definition()) do
       {switches, [cluster], []} ->
@@ -39,30 +59,55 @@ defmodule RR.KubeConfig do
     ]
   end
 
-  def run(args) do
-    {switches, fuzzy_cluster_name} = parse_args!(args)
+  def execute(kubeconfig, existing_kf_valid?, overwrite_existing_kf, generate_zsh_template?)
 
-    base_req = base_req!()
+  def execute(kubeconifg, false, _, true) do
+    kubeconifg
+    |> get_kubeconfig!(base_req!())
+    |> save_to_file!()
 
-    target_cluster =
-      cluster_selection(fuzzy_cluster_name, base_req)
-
-    kf_path =
-      target_cluster
-      |> get_kubeconfig!(base_req)
-      |> save_to_file()
-
-    Shell.error(["kubeconfig is saved to: ", kf_path])
-
-    if Keyword.get(switches, :zsh, false) do
-      Shell.info(EEx.eval_file(zsh_template_path(), kf_path: kf_path))
-    end
+    zsh_template_path()
+    |> EEx.eval_file(kf_path: kubeconfig_file_path(kubeconifg))
+    |> Shell.info()
   end
 
-  def existing_kf_is_valid?(target_cluster) do
-    path = kubeconfig_file_path(target_cluster)
+  def execute(kubeconifg, false, _overwrite_existing_kf, false) do
+    kubeconifg
+    |> get_kubeconfig!(base_req!())
+    |> save_to_file!()
+  end
 
-    with true <- File.exists?(path) do
+  def execute(kubeconifg, true, false, true) do
+    zsh_template_path()
+    |> EEx.eval_file(kf_path: kubeconfig_file_path(kubeconifg))
+    |> Shell.info()
+  end
+
+  def execute(kubeconifg, true, false, false) do
+    Shell.info_stderr([
+      "kubeconfig file at ",
+      kubeconfig_file_path(kubeconifg),
+      " is already valid"
+    ])
+  end
+
+  def execute(kubeconifg, true, true, true) do
+    kubeconifg
+    |> get_kubeconfig!(base_req!())
+    |> save_to_file!()
+
+    zsh_template_path()
+    |> EEx.eval_file(kf_path: kubeconfig_file_path(kubeconifg))
+    |> Shell.info()
+  end
+
+  def execute(_kubeconifg, true, true, false) do
+    Shell.raise(["--new can only be used together with --zsh"])
+  end
+
+  def kf_valid?(kubeconifg) do
+    with path <- kubeconfig_file_path(kubeconifg),
+         true <- File.exists?(path) do
       case System.cmd("kubectl", ["get", "pods", "--kubeconfig=#{path}"], stderr_to_stdout: true) do
         {_, 0} -> true
         {_, 1} -> false
@@ -70,10 +115,6 @@ defmodule RR.KubeConfig do
     else
       false -> false
     end
-  end
-
-  def cluster_selection(fuzzy_cluster_name, base_req) do
-    get_clusters!(base_req) |> select_cluster!(fuzzy_cluster_name)
   end
 
   def get_kubeconfig!(target_cluster, base_req) do
@@ -98,10 +139,11 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def save_to_file(target_cluster) do
+  def save_to_file!(target_cluster) do
     with :ok <- File.mkdir_p(kubeconfig_dir()),
          kb_path <- kubeconfig_file_path(target_cluster),
          :ok <- File.write(kb_path, target_cluster.kubeconfig) do
+      Shell.info_stderr(["new kubeconfig is saved to ", kb_path])
       kb_path
     else
       {:error, err} -> Shell.raise(["error when saving kubeconfig:\n", err])

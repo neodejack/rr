@@ -3,6 +3,10 @@ defmodule RR.Shell do
     IO.puts(IO.ANSI.format(message))
   end
 
+  def info_stderr(message) do
+    IO.puts(:stderr, message)
+  end
+
   def error(message) do
     IO.puts(:stderr, message)
   end
