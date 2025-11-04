@@ -8,7 +8,9 @@
 
 ## How to use this
 
-1. put in the rancher auth configs
+1. create a rancher api key and fill them in using the below command
+
+rancher api key can be obtained from `https://<rancher_host>/dashboard/account`
 
 ```bash
 rr login
