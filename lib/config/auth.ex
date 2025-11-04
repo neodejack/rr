@@ -31,7 +31,7 @@ defmodule RR.Config.Auth do
       {:ok, %Req.Response{status: 200}} ->
         true
 
-      {:ok, %Req.Response{status: 401} = resp} ->
+      {:ok, %Req.Response{status: 401}} ->
         Shell.error("your token or hostname is invalid")
 
         Shell.error("to login, run: rr login")

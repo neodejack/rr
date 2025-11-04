@@ -7,19 +7,34 @@ defmodule RR do
   end
 
   def run(_arg) do
-    [cmd | args] = Burrito.Util.Args.argv()
+    with [cmd | args] <- Burrito.Util.Args.argv() do
+      case cmd do
+        "kf" ->
+          RR.KubeConfig.run(args)
 
-    case cmd do
-      "kf" ->
-        RR.KubeConfig.run(args)
+        "login" ->
+          RR.Login.run(args)
 
-      "login" ->
-        RR.Login.run(args)
+        "--help" ->
+          render_help()
 
-      cmd ->
-        Logger.error("no such commands #{cmd}")
+        _cmd ->
+          RR.Shell.error("no such commands #{cmd}")
+      end
+    else
+      [] -> render_help()
     end
 
     System.halt(0)
+  end
+
+  def render_help() do
+    RR.Shell.raise("""
+    playing with rancher generated kubeconfigs
+
+    COMMANDS
+      login     : key in the auth info of rancher cluster
+      kf        : playing with rancher generated kubeconfigs
+    """)
   end
 end
