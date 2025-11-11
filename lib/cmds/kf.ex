@@ -198,12 +198,12 @@ defmodule RR.KubeConfig do
 
       [_ | _] = matched_clusters ->
         Shell.error(
-          "more than one matches were found for the cluster name '#{cluster_name_substring}'\nthese matches are found:"
+          "more than one matches were found for the cluster name '#{cluster_name_substring}'\nthese matches are found:\n"
         )
 
         error_char_data =
           matched_clusters
-          |> Enum.map(&[" - ", &1.name, "\n"])
+          |> Enum.map(&[" ", &1.name, "\n"])
 
         Shell.error("#{error_char_data}")
 
