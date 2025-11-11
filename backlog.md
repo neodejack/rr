@@ -26,3 +26,11 @@ how: separate the logic into two functions
 
 1. a function to choose local kf or download remote kf
 2. a function to output path to kf or shell command to use kf
+
+---
+
+§binary_version
+
+add a `rr --version` command to show the binary version
+
+it should take the version number from the git tag or git commit
