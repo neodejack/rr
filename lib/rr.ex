@@ -18,6 +18,15 @@ defmodule RR do
         "--help" ->
           render_help()
 
+        "-h" ->
+          render_help()
+
+        "--version" ->
+          render_version()
+
+        "-v" ->
+          render_version()
+
         _cmd ->
           RR.Shell.error("no such commands #{cmd}")
       end
@@ -28,13 +37,20 @@ defmodule RR do
     System.halt(0)
   end
 
+  def render_version do
+    Application.spec(:rr)[:vsn] |> RR.Shell.info()
+  end
+
   def render_help() do
-    RR.Shell.raise("""
+    RR.Shell.info("""
     playing with rancher generated kubeconfigs
 
     COMMANDS
       login     : key in the auth info of rancher cluster
       kf        : playing with rancher generated kubeconfigs
+
     """)
+
+    render_version()
   end
 end

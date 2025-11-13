@@ -66,7 +66,7 @@ defmodule RR.KubeConfig do
   end
 
   def render_help() do
-    Shell.raise("""
+    Shell.info("""
     obtain and manage kubeconfigs from rancher
 
     USAGE:
@@ -79,6 +79,8 @@ defmodule RR.KubeConfig do
       --new Overwrite existing valid kubeconfigs.
       --sh Generate `export KUBECONIFG=` shell command to use a kubeconfig in the current shell.
     """)
+
+    System.halt(0)
   end
 
   def execute(kubeconfig, existing_kf_valid?, overwrite_existing_kf, generate_sh_template?)
