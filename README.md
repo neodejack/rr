@@ -2,9 +2,25 @@
 
 ## Installation
 
+### Quick Install/Upgrade the latest version
+
+if you are using linux/macos:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/neodejack/rr/main/upgrade.sh | bash
+```
+
+just make sure `~/.local/bin` is in your PATH.
+
+### Manual Installation
+
 1. download the binary executable from github release page
 2. unzip and cp the binary executable into your PATH. for example, you can copy it into `$HOME/.local/bin`
 3. try running `rr`, mac's security feature should block you from doing this. you need to open up settings -> privacy & security and manually allow this binary to run
+
+### If you are using windows
+
+i dunno. there is a windows binary tho. but i literally don't know how anything works on windows, you gotta figure it out
 
 ## How to use this
 
