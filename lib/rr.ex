@@ -48,9 +48,8 @@ defmodule RR do
     COMMANDS
       login     : key in the auth info of rancher cluster
       kf        : playing with rancher generated kubeconfigs
-
     """)
 
-    render_version()
+    RR.Shell.info(["current version: ", Application.spec(:rr)[:vsn]])
   end
 end
