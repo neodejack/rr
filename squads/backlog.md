@@ -10,8 +10,6 @@ maybe use https://hexdocs.pm/elixir/URI.html#new/1 as cast function for Owl.IO.i
 
 - `rr list` to show all clusters
 
-- if no match, show all the available
-
 ---
 
 §1
