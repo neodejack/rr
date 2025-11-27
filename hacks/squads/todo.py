@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 from pathlib import Path
+from git_utils import git_add_and_commit
 
 if len(sys.argv) < 2:
     print("Error: todo_name is required")
@@ -32,3 +33,6 @@ content = f"""§{todo_name}
 # Write the file
 file_path.write_text(content)
 print(f"Created todo: {file_path}")
+
+# Commit the new file to git
+git_add_and_commit(file_path, f"squads::todo {todo_name}")
