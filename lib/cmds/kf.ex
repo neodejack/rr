@@ -107,12 +107,16 @@ defmodule RR.KubeConfig do
   end
 
   def execute(kubeconifg, true, false, true) do
+    Shell.info_stderr("found existing valid kubeconifg: #{kubeconfig_file_path(kubeconifg)}")
+
     sh_template_path()
     |> EEx.eval_file(kf_path: kubeconfig_file_path(kubeconifg))
     |> Shell.info()
   end
 
   def execute(kubeconifg, true, false, false) do
+    Shell.info_stderr("found existing valid kubeconifg: #{kubeconfig_file_path(kubeconifg)}")
+
     kubeconifg
     |> kubeconfig_file_path()
     |> Shell.info()
