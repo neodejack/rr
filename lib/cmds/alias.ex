@@ -4,7 +4,7 @@ defmodule RR.Alias do
   require Logger
 
   def run(args) do
-    {_, alias, full_name} = parse_args!(args)
+    {alias, full_name} = parse_args!(args)
 
     Config.put_in([Access.key("alias", %{}), alias], full_name)
     Shell.info("alias: #{alias} -> #{full_name} ")
@@ -24,9 +24,13 @@ defmodule RR.Alias do
   def parse_args!(args) do
     with {switches, _, _} = args <- OptionParser.parse(args, args_definition()),
          false <- Keyword.has_key?(switches, :help) do
+      if Keyword.has_key?(switches, :list) do
+        render_alias_list()
+      end
+
       case args do
-        {switches, [alias, full], []} ->
-          {switches, alias, full}
+        {_, [alias, full], []} ->
+          {alias, full}
 
         {_switches, _cluster, [_invalid | _] = invalid_args} ->
           invalids = invalid_args |> Enum.map(fn {arg, _value} -> arg end)
@@ -53,10 +57,29 @@ defmodule RR.Alias do
   def args_definition() do
     [
       strict: [
-        help: :boolean
+        help: :boolean,
+        list: :boolean
       ],
       alias: [h: :help]
     ]
+  end
+
+  def render_alias_list() do
+    aliases = Config.get_in(["alias"])
+
+    case map_size(aliases) > 0 do
+      true ->
+        Shell.info("these aliases are found:\n")
+
+        aliases
+        |> Enum.map(fn {alias, full_name} -> "  #{alias} -> #{full_name}\n" end)
+        |> Shell.info()
+
+      false ->
+        Shell.info("no aliases set")
+    end
+
+    System.halt(0)
   end
 
   def render_help() do
@@ -67,7 +90,10 @@ defmodule RR.Alias do
 
     USAGE:
       rr alias <cluster_alias> <cluster_full_name>
+      rr alias --list
 
+    FlAGS:
+      --list List all the aliases currently set
     """)
 
     System.halt(0)
