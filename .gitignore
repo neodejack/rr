@@ -25,3 +25,5 @@ rr-*.tar
 /burrito_out/
 
 .envrc
+
+__pycache__/
