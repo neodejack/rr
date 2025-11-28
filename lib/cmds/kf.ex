@@ -1,4 +1,5 @@
 defmodule RR.KubeConfig do
+  alias RR.Alias
   alias RR.Shell
   alias RR.Config
   require Logger
@@ -12,6 +13,8 @@ defmodule RR.KubeConfig do
     if Keyword.has_key?(switches, :help) do
       render_help()
     end
+
+    cluster_name_substring = Alias.resolve(cluster_name_substring)
 
     target_cluster =
       base_req!()

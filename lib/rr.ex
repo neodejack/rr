@@ -15,6 +15,9 @@ defmodule RR do
         "login" ->
           RR.Login.run(args)
 
+        "alias" ->
+          RR.Alias.run(args)
+
         "--help" ->
           render_help()
 

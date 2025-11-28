@@ -13,6 +13,17 @@ defmodule RR.Config do
     |> write()
   end
 
+  def put_in(key, value) do
+    read()
+    |> Kernel.put_in(key, value)
+    |> write()
+  end
+
+  def get_in(key) do
+    read()
+    |> Kernel.get_in(key)
+  end
+
   def get(key) do
     read()
     |> Map.get(key)
