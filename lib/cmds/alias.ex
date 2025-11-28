@@ -16,7 +16,7 @@ defmodule RR.Alias do
         alias
 
       full_name ->
-        Shell.info("resolving alias: #{alias} -> #{full_name} ")
+        Shell.info_stderr("resolving alias: #{alias} -> #{full_name} ")
         full_name
     end
   end
