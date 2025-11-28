@@ -10,10 +10,6 @@ defmodule RR.KubeConfig do
   def run(args) do
     {switches, cluster_name_substring} = parse_args!(args)
 
-    if Keyword.has_key?(switches, :help) do
-      render_help()
-    end
-
     cluster_name_substring = Alias.resolve(cluster_name_substring)
 
     target_cluster =
@@ -30,30 +26,35 @@ defmodule RR.KubeConfig do
   end
 
   def parse_args!(args) do
-    case OptionParser.parse(args, args_definition()) do
-      {switches, [cluster], []} ->
-        {switches, cluster}
+    with {switches, _, _} = args <- OptionParser.parse(args, args_definition()),
+         false <- Keyword.has_key?(switches, :help) do
+      case args do
+        {switches, [cluster], []} ->
+          {switches, cluster}
 
-      {_switches, [_cluster], invalid_args} ->
-        invalids = invalid_args |> Enum.map(fn {arg, _value} -> arg end)
+        {_switches, [_cluster], invalid_args} ->
+          invalids = invalid_args |> Enum.map(fn {arg, _value} -> arg end)
 
-        Shell.error([
-          "the arguments you provided are invalid: ",
-          invalids
-        ])
+          Shell.error([
+            "the arguments you provided are invalid: ",
+            invalids
+          ])
 
-        render_help()
+          render_help()
 
-      {_switches, [], _} ->
-        render_help()
+        {_switches, [], _} ->
+          render_help()
 
-      {_switches, [_ | _] = clusters, _} ->
-        Shell.raise([
-          "you provided more than one clusters: ",
-          Enum.intersperse(clusters, ", ")
-        ])
+        {_switches, [_ | _] = clusters, _} ->
+          Shell.raise([
+            "you provided more than one clusters: ",
+            Enum.intersperse(clusters, ", ")
+          ])
 
-        render_help()
+          render_help()
+      end
+    else
+      true -> render_help()
     end
   end
 
