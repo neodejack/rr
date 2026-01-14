@@ -21,13 +21,7 @@ defmodule RR.Config.Auth do
   end
 
   def is_valid_auth?(auth) do
-    base_req =
-      Req.new(
-        base_url: auth.rancher_hostname,
-        auth: {:bearer, auth.rancher_token}
-      )
-
-    case Req.get(base_req, url: "/v3/clusters") do
+    case External.RancherHttpClient.auth_validation(auth) do
       {:ok, %Req.Response{status: 200}} ->
         true
 
