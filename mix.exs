@@ -26,9 +26,7 @@ defmodule RR.MixProject do
       {:burrito, git: "https://github.com/burrito-elixir/burrito.git", branch: "main"},
       {:owl, "~> 0.13"},
       {:req, "~> 0.5.15"},
-      {:mox, "~> 1.2"},
-      {:breeze,
-       git: "https://github.com/neodejack/breeze.git", branch: "default-focus-and-terminate/2"}
+      {:mox, "~> 1.2"}
     ]
   end
 
