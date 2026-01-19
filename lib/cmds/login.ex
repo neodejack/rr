@@ -4,22 +4,17 @@ defmodule RR.Login do
   login/1 function will pattern match on these three and proceed to respective actions
 
   """
-  alias RR.Shell
   alias RR.Config.Auth
+  alias RR.Shell
 
   def run(args) do
     with :ok <- parse_args!(args),
          {:ok, auth} <- Auth.get_auth(),
          true <- Auth.is_valid_auth?(auth) do
-      case Owl.IO.confirm(
-             message:
-               "you already have a valid auth config, are you sure you want to overwrite it?"
-           ) do
-        true ->
-          login()
-
-        false ->
-          :ok
+      if Owl.IO.confirm(message: "you already have a valid auth config, are you sure you want to overwrite it?") do
+        login()
+      else
+        :ok
       end
     else
       {:error, _} -> login()
@@ -37,20 +32,18 @@ defmodule RR.Login do
     end
   end
 
-  def login() do
+  def login do
     auth = prompt()
 
-    case Auth.is_valid_auth?(auth) do
-      true ->
-        Shell.info("auth info successfully validated and saved")
-        Auth.put_auth(auth)
-
-      false ->
-        Shell.raise(" ")
+    if Auth.is_valid_auth?(auth) do
+      Shell.info("auth info successfully validated and saved")
+      Auth.put_auth(auth)
+    else
+      Shell.raise(" ")
     end
   end
 
-  def prompt() do
+  def prompt do
     hostname = Owl.IO.input(label: "rancher hostname")
     token = Owl.IO.input(label: "rancher token (in the form of token-xxxx:xxxxxx)", secret: true)
 

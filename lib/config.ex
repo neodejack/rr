@@ -1,4 +1,5 @@
 defmodule RR.Config do
+  @moduledoc false
   @config "config.json"
 
   def delete(key) do
@@ -20,13 +21,11 @@ defmodule RR.Config do
   end
 
   def get_in(key) do
-    read()
-    |> Kernel.get_in(key)
+    Kernel.get_in(read(), key)
   end
 
   def get(key) do
-    read()
-    |> Map.get(key)
+    Map.get(read(), key)
   end
 
   defp read do
@@ -49,10 +48,10 @@ defmodule RR.Config do
   end
 
   defp file do
-    Path.join(home_dir(), @config) |> Path.expand()
+    home_dir() |> Path.join(@config) |> Path.expand()
   end
 
-  def home_dir() do
+  def home_dir do
     override_dir = System.get_env("RR_HOME")
 
     if override_dir == nil or override_dir == "" do
@@ -62,7 +61,7 @@ defmodule RR.Config do
     end
   end
 
-  def get_auth() do
+  def get_auth do
     {get("rancher_hostname"), get("rancher_token")}
   end
 

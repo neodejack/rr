@@ -1,17 +1,20 @@
 defmodule RR.Config.Auth do
+  @moduledoc false
   alias RR.Config
   alias RR.Shell
+
   defstruct [:rancher_hostname, :rancher_token]
 
-  def get_auth() do
+  def get_auth do
     auth = %__MODULE__{
       rancher_hostname: Config.get("rancher_hostname"),
       rancher_token: Config.get("rancher_token")
     }
 
-    case auth.rancher_hostname != nil and auth.rancher_token != nil do
-      true -> {:ok, auth}
-      false -> {:error, "auth config file incomplete\nto login, run: rr login"}
+    if auth.rancher_hostname != nil and auth.rancher_token != nil do
+      {:ok, auth}
+    else
+      {:error, "auth config file incomplete\nto login, run: rr login"}
     end
   end
 

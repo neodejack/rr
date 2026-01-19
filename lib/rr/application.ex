@@ -20,9 +20,10 @@ defmodule RR.Application do
   def load(children, module) do
     conf = Application.get_env(:rr, module)
 
-    case conf[:enabled] do
-      true -> children ++ [module]
-      false -> children
+    if conf[:enabled] do
+      children ++ [module]
+    else
+      children
     end
   end
 end

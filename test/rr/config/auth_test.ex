@@ -3,6 +3,8 @@ defmodule RR.Config.AuthTest do
 
   import Mox
 
+  alias RR.Config.Auth
+
   setup :verify_on_exit!
 
   describe "is_valid_auth?/1" do
@@ -11,9 +13,9 @@ defmodule RR.Config.AuthTest do
         {:error, %Req.TransportError{reason: :nxdomain}}
       end)
 
-      assert false == valid_auth_data() |> RR.Config.Auth.is_valid_auth?()
+      assert false == Auth.is_valid_auth?(valid_auth_data())
     end
   end
 
-  def valid_auth_data(), do: %RR.Config.Auth{rancher_hostname: "valid", rancher_token: "valid"}
+  def valid_auth_data, do: %Auth{rancher_hostname: "valid", rancher_token: "valid"}
 end

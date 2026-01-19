@@ -1,4 +1,5 @@
 defmodule External.RancherHttpClient do
+  @moduledoc false
   alias RR.KubeConfig
 
   @callback auth_validation(%RR.Config.Auth{}) :: :ok | :error
@@ -7,12 +8,11 @@ defmodule External.RancherHttpClient do
 
   @callback get_clusters() :: {:ok, [dynamic()]} | {:error, String.t()}
 
-  def get_clusters(), do: impl().get_clusters()
+  def get_clusters, do: impl().get_clusters()
 
   @callback get_kubeconfig!(%KubeConfig{}) :: %KubeConfig{}
 
   def get_kubeconfig!(kubeconfig), do: impl().get_kubeconfig!(kubeconfig)
 
-  defp impl(),
-    do: Module.concat([__MODULE__, Application.get_env(:rr, :external_bound, Impl)])
+  defp impl, do: Module.concat([__MODULE__, Application.get_env(:rr, :external_bound, Impl)])
 end

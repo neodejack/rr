@@ -1,8 +1,10 @@
 defmodule RR.KubeConfig do
-  alias RR.Alias
-  alias RR.Shell
-  alias RR.Config
+  @moduledoc false
   alias External.RancherHttpClient
+  alias RR.Alias
+  alias RR.Config
+  alias RR.Shell
+
   require Logger
 
   @enforce_keys [:id, :name]
@@ -14,12 +16,14 @@ defmodule RR.KubeConfig do
     cluster_name_substring = Alias.resolve(cluster_name_substring)
 
     {:ok, target_cluster} =
-      with {:ok, clusters} <- RancherHttpClient.get_clusters() do
-        clusters
-        |> parse_cluster()
-        |> select_cluster(cluster_name_substring)
-      else
-        {:error, err_msg} -> Shell.raise(err_msg)
+      case RancherHttpClient.get_clusters() do
+        {:ok, clusters} ->
+          clusters
+          |> parse_cluster()
+          |> select_cluster(cluster_name_substring)
+
+        {:error, err_msg} ->
+          Shell.raise(err_msg)
       end
 
     kubconfig_path =
@@ -39,7 +43,7 @@ defmodule RR.KubeConfig do
           {switches, cluster}
 
         {_switches, [_cluster], invalid_args} ->
-          invalids = invalid_args |> Enum.map(fn {arg, _value} -> arg end)
+          invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
 
           Shell.error([
             "the arguments you provided are invalid: ",
@@ -64,7 +68,7 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def args_definition() do
+  def args_definition do
     [
       strict: [
         help: :boolean,
@@ -75,7 +79,7 @@ defmodule RR.KubeConfig do
     ]
   end
 
-  def render_help() do
+  def render_help do
     Shell.info("""
     obtain and manage kubeconfigs from rancher
 
@@ -96,23 +100,19 @@ defmodule RR.KubeConfig do
   defp ensure_valid_kubeconfig(kubeconfig, overwrite_existing_kf)
 
   defp ensure_valid_kubeconfig(kubeconfig, false) do
-    case kf_valid?(kubeconfig) do
-      true ->
-        Shell.info_stderr("found existing valid kubeconifg: #{kubeconfig_file_path(kubeconfig)}")
+    if kf_valid?(kubeconfig) do
+      Shell.info_stderr("found existing valid kubeconifg: #{kubeconfig_file_path(kubeconfig)}")
 
-        {:ok, kubeconfig_file_path(kubeconfig)}
-
-      false ->
-        kubeconfig
-        |> RancherHttpClient.get_kubeconfig!()
-        |> save_to_file()
+      {:ok, kubeconfig_file_path(kubeconfig)}
+    else
+      kubeconfig
+      |> RancherHttpClient.get_kubeconfig!()
+      |> save_to_file()
     end
   end
 
   defp ensure_valid_kubeconfig(kubeconfig, true) do
-    Shell.info_stderr(
-      "overwriting existing valid kubeconfig: #{kubeconfig_file_path(kubeconfig)}"
-    )
+    Shell.info_stderr("overwriting existing valid kubeconfig: #{kubeconfig_file_path(kubeconfig)}")
 
     kubeconfig
     |> RancherHttpClient.get_kubeconfig!()
@@ -128,25 +128,23 @@ defmodule RR.KubeConfig do
   end
 
   defp output_kubeconfig_path(kubconfig_path, false) do
-    kubconfig_path
-    |> Shell.info()
+    Shell.info(kubconfig_path)
   end
 
   defp kf_valid?(kubeconifg) do
-    with path <- kubeconfig_file_path(kubeconifg),
-         true <- File.exists?(path) do
+    path = kubeconfig_file_path(kubeconifg)
+
+    if File.exists?(path) do
       case System.cmd("kubectl", ["get", "pods", "--kubeconfig=#{path}"], stderr_to_stdout: true) do
         {_, 0} -> true
         {_, 1} -> false
       end
-    else
-      false -> false
     end
   end
 
   defp save_to_file(target_cluster) do
     with :ok <- File.mkdir_p(kubeconfig_dir()),
-         kb_path <- kubeconfig_file_path(target_cluster),
+         kb_path = kubeconfig_file_path(target_cluster),
          :ok <- File.write(kb_path, target_cluster.kubeconfig) do
       Shell.info_stderr(["new kubeconfig is saved to ", kb_path])
       {:ok, kb_path}
@@ -156,7 +154,7 @@ defmodule RR.KubeConfig do
   end
 
   defp parse_cluster(raw_clusters) when is_list(raw_clusters) and length(raw_clusters) > 0 do
-    raw_clusters |> Enum.map(&%__MODULE__{id: &1["id"], name: &1["name"]})
+    Enum.map(raw_clusters, &%__MODULE__{id: &1["id"], name: &1["name"]})
   end
 
   defp select_cluster(clusters, cluster_name_substring) do
@@ -172,18 +170,15 @@ defmodule RR.KubeConfig do
           "more than one matches were found for the cluster name '#{cluster_name_substring}'\nthese matches are found:\n"
         )
 
-        error_char_data =
-          matched_clusters
-          |> Enum.map(&[" ", &1.name, "\n"])
+        error_char_data = Enum.map(matched_clusters, &[" ", &1.name, "\n"])
 
         Shell.error("#{error_char_data}")
 
-        {:error,
-         "please make your cluster name more precise so that there will only be one single match"}
+        {:error, "please make your cluster name more precise so that there will only be one single match"}
     end
   end
 
-  defp kubeconfig_dir() do
+  defp kubeconfig_dir do
     Path.join(Config.home_dir(), "kubeconfigs")
   end
 
@@ -195,7 +190,8 @@ defmodule RR.KubeConfig do
   end
 
   defp sh_template_path do
-    :code.priv_dir(:rr)
+    :rr
+    |> :code.priv_dir()
     |> to_string()
     |> Path.join("templates/sh.eex")
   end

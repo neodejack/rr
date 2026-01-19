@@ -1,19 +1,14 @@
 defmodule External.RancherHttpClient.Impl do
-  alias RR.Shell
-  alias RR.KubeConfig
-
+  @moduledoc false
   @behaviour External.RancherHttpClient
 
+  alias RR.Config.Auth
+  alias RR.KubeConfig
+  alias RR.Shell
+
   @impl true
-  def auth_validation(%RR.Config.Auth{
-        rancher_hostname: rancher_hostname,
-        rancher_token: rancher_token
-      }) do
-    case Req.new(
-           base_url: rancher_hostname,
-           auth: {:bearer, rancher_token}
-         )
-         |> Req.get(url: "/v3/clusters") do
+  def auth_validation(%Auth{rancher_hostname: rancher_hostname, rancher_token: rancher_token}) do
+    case Req.get([base_url: rancher_hostname, auth: {:bearer, rancher_token}], url: "/v3/clusters") do
       {:ok, %Req.Response{status: 200}} ->
         :ok
 
@@ -30,10 +25,10 @@ defmodule External.RancherHttpClient.Impl do
   end
 
   @impl true
-  def get_clusters() do
+  def get_clusters do
     url = "/v3/clusters"
 
-    case rancher_base_req!() |> Req.get!(url: url) do
+    case Req.get!(rancher_base_req!(), url: url) do
       %Req.Response{status: 200, body: body} ->
         if length(body["data"]) > 0 do
           {:ok, body["data"]}
@@ -52,9 +47,7 @@ defmodule External.RancherHttpClient.Impl do
     url = "/v3/clusters/#{id}?action=generateKubeconfig"
 
     %Req.Response{status: status} =
-      resp =
-      rancher_base_req!()
-      |> Req.post!(url: url)
+      resp = Req.post!(rancher_base_req!(), url: url)
 
     case status do
       200 ->
@@ -71,9 +64,9 @@ defmodule External.RancherHttpClient.Impl do
     end
   end
 
-  defp rancher_base_req!() do
-    with {:ok, auth} <- RR.Config.Auth.get_auth(),
-         true <- RR.Config.Auth.is_valid_auth?(auth) do
+  defp rancher_base_req! do
+    with {:ok, auth} <- Auth.get_auth(),
+         true <- Auth.is_valid_auth?(auth) do
       Req.new(
         base_url: auth.rancher_hostname,
         auth: {:bearer, auth.rancher_token}

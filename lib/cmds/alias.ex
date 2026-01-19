@@ -1,6 +1,8 @@
 defmodule RR.Alias do
-  alias RR.Shell
+  @moduledoc false
   alias RR.Config
+  alias RR.Shell
+
   require Logger
 
   def run(args) do
@@ -33,7 +35,7 @@ defmodule RR.Alias do
           {alias, full}
 
         {_switches, _cluster, [_invalid | _] = invalid_args} ->
-          invalids = invalid_args |> Enum.map(fn {arg, _value} -> arg end)
+          invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
 
           Shell.error([
             "the arguments you provided are invalid:",
@@ -54,7 +56,7 @@ defmodule RR.Alias do
     end
   end
 
-  def args_definition() do
+  def args_definition do
     [
       strict: [
         help: :boolean,
@@ -64,25 +66,23 @@ defmodule RR.Alias do
     ]
   end
 
-  def render_alias_list() do
+  def render_alias_list do
     aliases = Config.get_in(["alias"])
 
-    case map_size(aliases) > 0 do
-      true ->
-        Shell.info("these aliases are found:\n")
+    if map_size(aliases) > 0 do
+      Shell.info("these aliases are found:\n")
 
-        aliases
-        |> Enum.map(fn {alias, full_name} -> "  #{alias} -> #{full_name}\n" end)
-        |> Shell.info()
-
-      false ->
-        Shell.info("no aliases set")
+      aliases
+      |> Enum.map(fn {alias, full_name} -> "  #{alias} -> #{full_name}\n" end)
+      |> Shell.info()
+    else
+      Shell.info("no aliases set")
     end
 
     System.halt(0)
   end
 
-  def render_help() do
+  def render_help do
     Shell.info("""
 
     `rr alias` set alias. 
