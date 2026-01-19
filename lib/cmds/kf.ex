@@ -22,13 +22,13 @@ defmodule RR.KubeConfig do
         {:error, err_msg} -> Shell.raise(err_msg)
       end
 
-    # TODO:§refactor_kf 
-    execute(
-      target_cluster,
-      kf_valid?(target_cluster),
-      Keyword.get(switches, :new, false),
-      Keyword.get(switches, :sh, false)
-    )
+    kubconfig_path =
+      case ensure_valid_kubeconfig(target_cluster, Keyword.get(switches, :new, false)) do
+        {:ok, path} -> path
+        {:error, err_msg} -> Shell.raise(err_msg)
+      end
+
+    output_kubeconfig_path(kubconfig_path, Keyword.get(switches, :sh, false))
   end
 
   def parse_args!(args) do
@@ -93,59 +93,46 @@ defmodule RR.KubeConfig do
     System.halt(0)
   end
 
-  def execute(kubeconfig, existing_kf_valid?, overwrite_existing_kf, generate_sh_template?)
+  defp ensure_valid_kubeconfig(kubeconfig, overwrite_existing_kf)
 
-  def execute(kubeconifg, false, _, true) do
-    kubeconifg
+  defp ensure_valid_kubeconfig(kubeconfig, false) do
+    case kf_valid?(kubeconfig) do
+      true ->
+        Shell.info_stderr("found existing valid kubeconifg: #{kubeconfig_file_path(kubeconfig)}")
+
+        {:ok, kubeconfig_file_path(kubeconfig)}
+
+      false ->
+        kubeconfig
+        |> RancherHttpClient.get_kubeconfig!()
+        |> save_to_file()
+    end
+  end
+
+  defp ensure_valid_kubeconfig(kubeconfig, true) do
+    Shell.info_stderr(
+      "overwriting existing valid kubeconfig: #{kubeconfig_file_path(kubeconfig)}"
+    )
+
+    kubeconfig
     |> RancherHttpClient.get_kubeconfig!()
-    |> save_to_file!()
+    |> save_to_file()
+  end
 
+  defp output_kubeconfig_path(kubeconfig_path, generate_sh_template?)
+
+  defp output_kubeconfig_path(kubconfig_path, true) do
     sh_template_path()
-    |> EEx.eval_file(kf_path: kubeconfig_file_path(kubeconifg))
+    |> EEx.eval_file(kf_path: kubconfig_path)
     |> Shell.info()
   end
 
-  def execute(kubeconifg, false, _overwrite_existing_kf, false) do
-    kubeconifg
-    |> RancherHttpClient.get_kubeconfig!()
-    |> save_to_file!()
+  defp output_kubeconfig_path(kubconfig_path, false) do
+    kubconfig_path
     |> Shell.info()
   end
 
-  def execute(kubeconifg, true, false, true) do
-    Shell.info_stderr("found existing valid kubeconifg: #{kubeconfig_file_path(kubeconifg)}")
-
-    sh_template_path()
-    |> EEx.eval_file(kf_path: kubeconfig_file_path(kubeconifg))
-    |> Shell.info()
-  end
-
-  def execute(kubeconifg, true, false, false) do
-    Shell.info_stderr("found existing valid kubeconifg: #{kubeconfig_file_path(kubeconifg)}")
-
-    kubeconifg
-    |> kubeconfig_file_path()
-    |> Shell.info()
-  end
-
-  def execute(kubeconifg, true, true, true) do
-    kubeconifg
-    |> RancherHttpClient.get_kubeconfig!()
-    |> save_to_file!()
-
-    sh_template_path()
-    |> EEx.eval_file(kf_path: kubeconfig_file_path(kubeconifg))
-    |> Shell.info()
-  end
-
-  def execute(kubeconifg, true, true, false) do
-    kubeconifg
-    |> RancherHttpClient.get_kubeconfig!()
-    |> save_to_file!()
-    |> Shell.info()
-  end
-
-  def kf_valid?(kubeconifg) do
+  defp kf_valid?(kubeconifg) do
     with path <- kubeconfig_file_path(kubeconifg),
          true <- File.exists?(path) do
       case System.cmd("kubectl", ["get", "pods", "--kubeconfig=#{path}"], stderr_to_stdout: true) do
@@ -157,22 +144,22 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def save_to_file!(target_cluster) do
+  defp save_to_file(target_cluster) do
     with :ok <- File.mkdir_p(kubeconfig_dir()),
          kb_path <- kubeconfig_file_path(target_cluster),
          :ok <- File.write(kb_path, target_cluster.kubeconfig) do
       Shell.info_stderr(["new kubeconfig is saved to ", kb_path])
-      kb_path
+      {:ok, kb_path}
     else
-      {:error, err} -> Shell.raise(["error when saving kubeconfig:\n", err])
+      {:error, err} -> {:error, ["error when saving kubeconfig:\n", err]}
     end
   end
 
-  def parse_cluster(raw_clusters) when is_list(raw_clusters) and length(raw_clusters) > 0 do
+  defp parse_cluster(raw_clusters) when is_list(raw_clusters) and length(raw_clusters) > 0 do
     raw_clusters |> Enum.map(&%__MODULE__{id: &1["id"], name: &1["name"]})
   end
 
-  def select_cluster(clusters, cluster_name_substring) do
+  defp select_cluster(clusters, cluster_name_substring) do
     case Enum.filter(clusters, &String.contains?(&1.name, cluster_name_substring)) do
       [] ->
         {:error, "no match were found for the cluster name '#{cluster_name_substring}'"}
@@ -200,10 +187,10 @@ defmodule RR.KubeConfig do
     Path.join(Config.home_dir(), "kubeconfigs")
   end
 
-  def kubeconfig_file_path(kubeconfig) do
+  defp kubeconfig_file_path(%__MODULE__{name: name}) do
     Path.join(
       kubeconfig_dir(),
-      kubeconfig.name
+      name
     )
   end
 
