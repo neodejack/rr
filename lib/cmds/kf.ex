@@ -2,6 +2,7 @@ defmodule RR.KubeConfig do
   alias RR.Alias
   alias RR.Shell
   alias RR.Config
+  alias External.RancherHttpClient
   require Logger
 
   @enforce_keys [:id, :name]
@@ -12,10 +13,14 @@ defmodule RR.KubeConfig do
 
     cluster_name_substring = Alias.resolve(cluster_name_substring)
 
-    target_cluster =
-      base_req!()
-      |> get_clusters!()
-      |> select_cluster!(cluster_name_substring)
+    {:ok, target_cluster} =
+      with {:ok, clusters} <- RancherHttpClient.get_clusters() do
+        clusters
+        |> parse_cluster()
+        |> select_cluster(cluster_name_substring)
+      else
+        {:error, err_msg} -> Shell.raise(err_msg)
+      end
 
     # TODO:§refactor_kf 
     execute(
@@ -92,7 +97,7 @@ defmodule RR.KubeConfig do
 
   def execute(kubeconifg, false, _, true) do
     kubeconifg
-    |> get_kubeconfig!(base_req!())
+    |> RancherHttpClient.get_kubeconfig!()
     |> save_to_file!()
 
     sh_template_path()
@@ -102,7 +107,7 @@ defmodule RR.KubeConfig do
 
   def execute(kubeconifg, false, _overwrite_existing_kf, false) do
     kubeconifg
-    |> get_kubeconfig!(base_req!())
+    |> RancherHttpClient.get_kubeconfig!()
     |> save_to_file!()
     |> Shell.info()
   end
@@ -125,7 +130,7 @@ defmodule RR.KubeConfig do
 
   def execute(kubeconifg, true, true, true) do
     kubeconifg
-    |> get_kubeconfig!(base_req!())
+    |> RancherHttpClient.get_kubeconfig!()
     |> save_to_file!()
 
     sh_template_path()
@@ -135,7 +140,7 @@ defmodule RR.KubeConfig do
 
   def execute(kubeconifg, true, true, false) do
     kubeconifg
-    |> get_kubeconfig!(base_req!())
+    |> RancherHttpClient.get_kubeconfig!()
     |> save_to_file!()
     |> Shell.info()
   end
@@ -152,28 +157,6 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def get_kubeconfig!(target_cluster, base_req) do
-    url = "/v3/clusters/#{target_cluster.id}?action=generateKubeconfig"
-
-    %Req.Response{status: status} =
-      resp =
-      Req.post!(base_req, url: url)
-
-    case status do
-      200 ->
-        %{target_cluster | kubeconfig: resp.body["config"]}
-
-      _ ->
-        Shell.raise([
-          "http request to rancher api failed.\n",
-          "request url: ",
-          url,
-          "\nerror response:\n",
-          inspect(resp.body)
-        ])
-    end
-  end
-
   def save_to_file!(target_cluster) do
     with :ok <- File.mkdir_p(kubeconfig_dir()),
          kb_path <- kubeconfig_file_path(target_cluster),
@@ -185,27 +168,17 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def get_clusters!(base_req) do
-    case Req.get!(base_req, url: "/v3/clusters") do
-      %Req.Response{status: 200} = resp ->
-        parse_cluster(resp.body["data"])
-
-      _ ->
-        raise "failed to get clusters"
-    end
-  end
-
-  def parse_cluster(raw_clusters) do
+  def parse_cluster(raw_clusters) when is_list(raw_clusters) and length(raw_clusters) > 0 do
     raw_clusters |> Enum.map(&%__MODULE__{id: &1["id"], name: &1["name"]})
   end
 
-  def select_cluster!(clusters, cluster_name_substring) do
+  def select_cluster(clusters, cluster_name_substring) do
     case Enum.filter(clusters, &String.contains?(&1.name, cluster_name_substring)) do
       [] ->
-        Shell.raise("no match were found for the cluster name '#{cluster_name_substring}'")
+        {:error, "no match were found for the cluster name '#{cluster_name_substring}'"}
 
       [cluster] ->
-        cluster
+        {:ok, cluster}
 
       [_ | _] = matched_clusters ->
         Shell.error(
@@ -218,25 +191,8 @@ defmodule RR.KubeConfig do
 
         Shell.error("#{error_char_data}")
 
-        Shell.raise(
-          "please make your cluster name more precise so that there will only be one single match"
-        )
-    end
-  end
-
-  def base_req! do
-    with {:ok, auth} <- RR.Config.Auth.get_auth(),
-         true <- RR.Config.Auth.is_valid_auth?(auth) do
-      Req.new(
-        base_url: auth.rancher_hostname,
-        auth: {:bearer, auth.rancher_token}
-      )
-    else
-      {:error, err} ->
-        Shell.raise(err)
-
-      false ->
-        Shell.raise("")
+        {:error,
+         "please make your cluster name more precise so that there will only be one single match"}
     end
   end
 
