@@ -23,7 +23,7 @@ defmodule RR.Config.Auth do
     Config.put("rancher_token", auth.rancher_token)
   end
 
-  def is_valid_auth?(auth) do
+  def valid_auth?(auth) do
     case External.RancherHttpClient.auth_validation(auth) do
       :ok ->
         true

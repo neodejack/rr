@@ -7,13 +7,13 @@ defmodule RR.Config.AuthTest do
 
   setup :verify_on_exit!
 
-  describe "is_valid_auth?/1" do
+  describe "valid_auth?/1" do
     test "internet connection error" do
       expect(External.RancherHttpClient.Mock, :auth_validation, fn _ ->
         {:error, %Req.TransportError{reason: :nxdomain}}
       end)
 
-      assert false == Auth.is_valid_auth?(valid_auth_data())
+      assert false == Auth.valid_auth?(valid_auth_data())
     end
   end
 

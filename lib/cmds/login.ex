@@ -10,7 +10,7 @@ defmodule RR.Login do
   def run(args) do
     with :ok <- parse_args!(args),
          {:ok, auth} <- Auth.get_auth(),
-         true <- Auth.is_valid_auth?(auth) do
+         true <- Auth.valid_auth?(auth) do
       if Owl.IO.confirm(message: "you already have a valid auth config, are you sure you want to overwrite it?") do
         login()
       else
@@ -35,7 +35,7 @@ defmodule RR.Login do
   def login do
     auth = prompt()
 
-    if Auth.is_valid_auth?(auth) do
+    if Auth.valid_auth?(auth) do
       Shell.info("auth info successfully validated and saved")
       Auth.put_auth(auth)
     else

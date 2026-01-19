@@ -66,7 +66,7 @@ defmodule External.RancherHttpClient.Impl do
 
   defp rancher_base_req! do
     with {:ok, auth} <- Auth.get_auth(),
-         true <- Auth.is_valid_auth?(auth) do
+         true <- Auth.valid_auth?(auth) do
       Req.new(
         base_url: auth.rancher_hostname,
         auth: {:bearer, auth.rancher_token}
