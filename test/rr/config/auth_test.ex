@@ -1,4 +1,4 @@
-defmodule RRTest.RR.Config.Auth do
+defmodule RR.Config.AuthTest do
   use ExUnit.Case, async: true
 
   import Mox
