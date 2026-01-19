@@ -22,18 +22,11 @@ defmodule RR.Config.Auth do
 
   def is_valid_auth?(auth) do
     case External.RancherHttpClient.auth_validation(auth) do
-      {:ok, %Req.Response{status: 200}} ->
+      :ok ->
         true
 
-      {:ok, %Req.Response{status: 401}} ->
-        Shell.error("your token or hostname is invalid")
-
-        Shell.error("to login, run: rr login")
-        false
-
-      {_, resp} ->
-        Shell.error("bad auth config")
-        Shell.error("#{inspect(resp)}")
+      :error ->
+        Shell.error("auth invalid")
         false
     end
   end
