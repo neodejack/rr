@@ -30,10 +30,10 @@ defmodule External.RancherHttpClient.Impl do
 
     case Req.get!(rancher_base_req!(), url: url) do
       %Req.Response{status: 200, body: body} ->
-        if length(body["data"]) > 0 do
-          {:ok, body["data"]}
-        else
+        if [] == body["data"] do
           {:error, "no clusters info found"}
+        else
+          {:ok, body["data"]}
         end
 
       non_200_resp ->

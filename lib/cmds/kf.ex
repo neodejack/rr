@@ -153,7 +153,7 @@ defmodule RR.KubeConfig do
     end
   end
 
-  defp parse_cluster(raw_clusters) when is_list(raw_clusters) and length(raw_clusters) > 0 do
+  defp parse_cluster(raw_clusters) when is_list(raw_clusters) and [] != raw_clusters do
     Enum.map(raw_clusters, &%__MODULE__{id: &1["id"], name: &1["name"]})
   end
 
