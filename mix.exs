@@ -23,6 +23,8 @@ defmodule RR.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:styler, "~> 1.10", only: [:dev, :test], runtime: false},
       {:burrito, git: "https://github.com/burrito-elixir/burrito.git", branch: "main"},
       {:owl, "~> 0.13"},
       {:req, "~> 0.5.15"},
