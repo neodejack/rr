@@ -31,6 +31,10 @@ defmodule RR.Config.Auth do
       :error ->
         Shell.error("auth invalid")
         false
+
+      {:error, _reason} ->
+        Shell.error("auth invalid")
+        false
     end
   end
 end

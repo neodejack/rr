@@ -21,6 +21,9 @@ defmodule RR do
           "alias" ->
             RR.Alias.run(args)
 
+          "list" ->
+            RR.List.run(args)
+
           "--help" ->
             render_help()
 
@@ -55,6 +58,7 @@ defmodule RR do
     COMMANDS
       login     : key in the auth info of rancher cluster
       kf        : playing with rancher generated kubeconfigs
+      list      : list rancher clusters
     """)
 
     RR.Shell.info(["current version: ", Application.spec(:rr)[:vsn]])
