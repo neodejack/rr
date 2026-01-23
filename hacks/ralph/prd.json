@@ -1,0 +1,38 @@
+{
+  "project": "rr",
+  "branchName": "ralph/rr-list",
+  "description": "Add rr list to display a human-readable inventory of Rancher clusters.",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "List clusters via CLI",
+      "description": "As a user, I want to run rr list to see a list of clusters so I can quickly confirm what is available.",
+      "acceptanceCriteria": [
+        "Running rr list invokes RancherHttpClient.get_clusters() exactly once per command execution",
+        "Output is a table-style text format with NAME and ID columns",
+        "When zero clusters are returned, output includes a header and a \"no clusters found\" message",
+        "Exit code is 0 on successful retrieval",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Handle Rancher API errors gracefully",
+      "description": "As a user, I want rr list to fail softly when Rancher is unreachable so my scripts do not hard-fail.",
+      "acceptanceCriteria": [
+        "If get_clusters() returns an error, print a concise error message and still exit 0",
+        "Output includes the empty list state with a header and a \"no clusters found\" message",
+        "Error output is routed through the centralized shell output helper",
+        "Tests pass",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
