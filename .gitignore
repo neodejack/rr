@@ -27,3 +27,5 @@ rr-*.tar
 .envrc
 
 __pycache__/
+
+.sprite
