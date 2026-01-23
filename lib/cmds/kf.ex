@@ -5,8 +5,6 @@ defmodule RR.KubeConfig do
   alias RR.Config
   alias RR.Shell
 
-  require Logger
-
   @enforce_keys [:id, :name]
   defstruct [:id, :name, :kubeconfig]
 

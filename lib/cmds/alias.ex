@@ -3,8 +3,6 @@ defmodule RR.Alias do
   alias RR.Config
   alias RR.Shell
 
-  require Logger
-
   def run(args) do
     {alias, full_name} = parse_args!(args)
 

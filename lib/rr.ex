@@ -2,8 +2,6 @@ defmodule RR do
   @moduledoc false
   use Task
 
-  require Logger
-
   def start_link(arg) do
     Task.start_link(__MODULE__, :run, [arg])
   end
