@@ -2,25 +2,17 @@
 
 ## Installation
 
-### Quick Install/Upgrade the latest version
-
-if you are using linux/macos:
+### Homebrew
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/neodejack/rr/main/upgrade.sh | bash
+brew install neodejack/tap/rr
 ```
 
-just make sure `~/.local/bin` is in your PATH.
-
-### Manual Installation
-
-1. download the binary executable from github release page
-2. unzip and cp the binary executable into your PATH. for example, you can copy it into `$HOME/.local/bin`
-3. try running `rr`, mac's security feature should block you from doing this. you need to open up settings -> privacy & security and manually allow this binary to run
+try running `rr`, mac's security feature should block you from doing this. you need to open up settings -> privacy & security and manually allow this binary to run
 
 ### If you are using windows
 
-i dunno. there is a windows binary tho. but i literally don't know how anything works on windows, you gotta figure it out
+i dunno. there is a windows binary from github release page tho. but i literally don't know how anything works on windows, you gotta figure it out
 
 ## How to use this
 
@@ -37,22 +29,14 @@ rr login
 some useful commands
 
 ```bash
-# check local kubeconfig first, if the local kubeconfig is not valid, then
-# download kubeconfig for us_west cluster, save it locally, and output path of
-# saved kubeconfig to stdout
+# it will output a path contain kubeconfig that can connect to us_west
 rr kf us_west
 
-# check local kubeconfig first, if the local kubeconfig is not valid, then
-# download kubeconfig for us_west cluster, save it locally, and output shell
-# command to use the kubeconfig in the current shell to stdout
+# it will output "export" command with a path contain kubeconfig that can connect to us_west
 rr kf us_west --sh
-
-# download kubeconfig for us_west cluster, save it locally (overwriting the
-# local kubeconfig whether it's still valid or not), and output shell command to
-# use the kubeconfig in the current shell to stdout
-rr kf us_west --sh --new
-
 ```
+
+`us_west` has to be substring match of the actual cluster name defined in rancher
 
 3. i like to set up this thing in my .zshrc
 
