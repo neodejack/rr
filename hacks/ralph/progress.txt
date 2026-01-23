@@ -1,0 +1,13 @@
+# Ralph Progress Log
+Started: Fri Jan 23 10:17:36 UTC 2026
+## Codebase Patterns
+- External.RancherHttpClient.auth_validation can return {:error, reason}; handle both :error and {:error, _} in callers.
+---
+## Fri Jan 23 10:27:28 UTC 2026 - US-001
+- Added rr list command that fetches clusters once and renders a NAME/ID table with empty-state messaging
+- Files changed: lib/cmds/list.ex, lib/rr.ex, test/rr/list_test.exs, lib/config/auth.ex, hacks/ralph/prd.json, hacks/ralph/progress.txt
+- **Learnings for future iterations:**
+  - Patterns discovered: External.RancherHttpClient.auth_validation may return {:error, reason} (not only :error)
+  - Gotchas encountered: mix format/test requires Elixir version from .tool-versions; main-otp-28 was unavailable locally
+  - Useful context: rr help text lives in lib/rr.ex and is the right spot to add new CLI commands
+---
