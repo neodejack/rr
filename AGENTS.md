@@ -22,6 +22,7 @@
 
 ## Testing Guidelines
 - Framework: ExUnit. Mocks use `mox` where applicable.
+- To mock a behavior, define callbacks in the behavior module and rely on the runtime `impl()` indirection; tests use the `*.Mock` module to stub callbacks with `expect/3` and `setup :verify_on_exit!` to enforce usage.
 - Add or update tests for CLI behavior changes and config/auth edge cases.
 - Run `mix test` before submitting; target-specific tests when iterating.
 
