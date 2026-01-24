@@ -41,10 +41,7 @@ rr kf us_west --sh
 3. i like to set up this thing in my .zshrc
 
 ```bash
-## put this somewhere in your .zshrc/.bashrc
-hi() {
-    eval "$(rr kf --sh "$1")"
-}
+echo 'eval "$(rr zsh)"' >> ~/.zshrc
 ```
 
-then i can just call `hi us_west` to connect to us_west k8s cluster in my current shell
+this defines a `yo` helper, so i can just call `yo us_west` to connect to us_west k8s cluster in my current shell
