@@ -22,6 +22,9 @@ defmodule RR do
           "list" ->
             RR.List.run(args)
 
+          "zsh" ->
+            RR.Zsh.run(args)
+
           "--help" ->
             render_help()
 
@@ -57,6 +60,7 @@ defmodule RR do
       login     : key in the auth info of rancher cluster
       kf        : playing with rancher generated kubeconfigs
       list      : list rancher clusters
+      zsh       : output zsh integration
     """)
 
     RR.Shell.info(["current version: ", Application.spec(:rr)[:vsn]])

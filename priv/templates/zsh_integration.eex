@@ -1,0 +1,8 @@
+yo() {
+  if [ -z "$1" ]; then
+    echo "usage: yo <cluster_name_substring>" >&2
+    return 1
+  fi
+
+  eval "$(rr kf --sh "$1")"
+}
