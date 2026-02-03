@@ -20,7 +20,7 @@ defmodule RR.Login do
       login()
     else
       {:error, _} -> login()
-      false -> login()
+      false -> :ok
     end
   end
 
