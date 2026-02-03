@@ -1,5 +1,6 @@
 defmodule External.RancherHttpClient do
   @moduledoc false
+  alias __MODULE__
   alias RR.KubeConfig
 
   @callback auth_validation(%RR.Config.Auth{}) :: :ok | :error
@@ -14,5 +15,5 @@ defmodule External.RancherHttpClient do
 
   def get_kubeconfig!(kubeconfig), do: impl().get_kubeconfig!(kubeconfig)
 
-  defp impl, do: Module.concat([__MODULE__, Application.get_env(:rr, :external_bound, Impl)])
+  defp impl, do: Module.concat([RancherHttpClient, Application.get_env(:rr, :external_bound, Impl)])
 end
