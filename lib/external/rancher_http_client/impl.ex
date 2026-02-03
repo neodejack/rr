@@ -7,24 +7,6 @@ defmodule External.RancherHttpClient.Impl do
   alias RR.Shell
 
   @impl true
-  def auth_validation(%Auth{rancher_hostname: rancher_hostname, rancher_token: rancher_token}) do
-    case Req.get([base_url: rancher_hostname, auth: {:bearer, rancher_token}], url: "/v3/clusters") do
-      {:ok, %Req.Response{status: 200}} ->
-        :ok
-
-      {:ok, %Req.Response{status: 401}} ->
-        Shell.error("your token or hostname is invalid")
-        Shell.error("to login, run: rr login")
-
-        :error
-
-      {_, resp} ->
-        Shell.error("#{inspect(resp)}")
-        :error
-    end
-  end
-
-  @impl true
   def get_clusters do
     url = "/v3/clusters"
 
@@ -64,19 +46,44 @@ defmodule External.RancherHttpClient.Impl do
     end
   end
 
+  @impl true
+  def get_token_info(%Auth{rancher_hostname: rancher_hostname, rancher_token: rancher_token}) do
+    token_id = rancher_token |> String.split(":") |> hd()
+
+    url = "#{rancher_hostname}/v3/tokens/#{token_id}"
+
+    case Req.get(url, auth: {:bearer, rancher_token}) do
+      {:ok, %Req.Response{status: 200, body: body}} ->
+        {:ok,
+         %{
+           description: body["description"],
+           expired: body["expired"],
+           enabled: body["enabled"],
+           created_ts: body["createdTS"],
+           ttl: body["ttl"]
+         }}
+
+      {:ok, %Req.Response{status: 401}} ->
+        {:error, "rancher token is not valid\nrun `rr login` to input a valid token"}
+
+      {:ok, resp} ->
+        {:error, "rancher api error - GET #{url}\n#{inspect(resp.body)}"}
+
+      {_, error} ->
+        {:error, "rancher api error - GET #{url}\n#{inspect(error)}"}
+    end
+  end
+
   defp rancher_base_req! do
-    with {:ok, auth} <- Auth.get_auth(),
-         true <- Auth.valid_auth?(auth) do
-      Req.new(
-        base_url: auth.rancher_hostname,
-        auth: {:bearer, auth.rancher_token}
-      )
-    else
+    case Auth.ensure_valid_auth() do
+      {:ok, auth} ->
+        Req.new(
+          base_url: auth.rancher_hostname,
+          auth: {:bearer, auth.rancher_token}
+        )
+
       {:error, err} ->
         Shell.raise(err)
-
-      false ->
-        Shell.raise("auth not valid")
     end
   end
 end
