@@ -3,6 +3,8 @@ defmodule RR.Config.Auth do
   alias RR.Config
   alias RR.Shell
 
+  @auth_cache_table :rr_auth_cache
+
   defstruct [:rancher_hostname, :rancher_token]
 
   def get_auth do
@@ -24,10 +26,16 @@ defmodule RR.Config.Auth do
   end
 
   def ensure_valid_auth do
-    with {:ok, auth} <- get_auth(),
-         {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
-         {:ok, _token_description} <- ensure_token_info_valid(token_info) do
-      {:ok, auth}
+    with {:ok, auth} <- get_auth() do
+      if auth_cached?(auth) do
+        {:ok, auth}
+      else
+        with {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
+             {:ok, _token_description} <- ensure_token_info_valid(token_info) do
+          cache_auth(auth)
+          {:ok, auth}
+        end
+      end
     end
   end
 
@@ -50,5 +58,40 @@ defmodule RR.Config.Auth do
     else
       _ -> {:error, "rancher token is not valid. run rr login to input a valid token"}
     end
+  end
+
+  defp auth_cached?(auth) do
+    ensure_auth_cache_table()
+
+    case :ets.lookup(@auth_cache_table, auth_cache_key(auth)) do
+      [{_key, true}] -> true
+      _ -> false
+    end
+  end
+
+  defp cache_auth(auth) do
+    ensure_auth_cache_table()
+    :ets.insert(@auth_cache_table, {auth_cache_key(auth), true})
+    :ok
+  end
+
+  defp auth_cache_key(%__MODULE__{rancher_hostname: hostname, rancher_token: token}) do
+    {hostname, token}
+  end
+
+  defp ensure_auth_cache_table do
+    case :ets.whereis(@auth_cache_table) do
+      :undefined ->
+        try do
+          :ets.new(@auth_cache_table, [:named_table, :set, :public, read_concurrency: true])
+        rescue
+          ArgumentError -> :ok
+        end
+
+      _tid ->
+        :ok
+    end
+
+    :ok
   end
 end
