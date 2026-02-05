@@ -1,11 +1,25 @@
 defmodule RR.Config.AuthTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   import Mox
 
+  alias RR.Config
   alias RR.Config.Auth
 
   setup :verify_on_exit!
+
+  setup do
+    clear_auth_cache()
+    Config.put_auth({"https://rancher.example", "token-123:abc"})
+
+    on_exit(fn ->
+      Config.delete("rancher_hostname")
+      Config.delete("rancher_token")
+      clear_auth_cache()
+    end)
+
+    :ok
+  end
 
   describe "ensure_valid_auth/0" do
     test "internet connection error" do
@@ -16,31 +30,34 @@ defmodule RR.Config.AuthTest do
       assert {:error, reason} = Auth.ensure_valid_auth()
       assert reason =~ "nxdomain"
     end
+
+    test "uses cached auth to avoid re-validating the token" do
+      expect(External.RancherHttpClient.Mock, :get_token_info, 1, fn _ ->
+        valid_token_info()
+      end)
+
+      assert {:ok, _} = Auth.ensure_valid_auth()
+      assert {:ok, _} = Auth.ensure_valid_auth()
+    end
   end
 
-  defp expired_token_info do
-    {:error, "rancher token is not valid\nrun `rr login` to input a valid token"}
+  defp clear_auth_cache do
+    case :ets.whereis(:rr_auth_cache) do
+      :undefined -> :ok
+      _tid -> :ets.delete(:rr_auth_cache)
+    end
   end
 
-  defp almost_expiring_token_data do
+  defp valid_token_info do
+    now_ms = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
+
     {:ok,
      %{
-       description: "almost expiring token",
+       description: "foo",
        expired: false,
        enabled: true,
-       created_ts: DateTime.shift(DateTime.utc_now(), day: -3),
-       ttl: 604_800_000
+       created_ts: now_ms - 300_000,
+       ttl: 864_000_000
      }}
   end
-
-  defp mock_valid_token_data,
-    do:
-      {:ok,
-       %{
-         description: "foo",
-         expired: false,
-         enabled: true,
-         created_ts: DateTime.shift(DateTime.utc_now(), minute: -5),
-         ttl: 864_000_000
-       }}
 end
