@@ -1,14 +1,17 @@
 defmodule RR.Config.Auth do
   @moduledoc false
+  alias __MODULE__
   alias RR.Config
   alias RR.Shell
 
   @auth_cache_table :rr_auth_cache
 
+  @type t :: %Auth{}
+
   defstruct [:rancher_hostname, :rancher_token]
 
   def get_auth do
-    auth = %__MODULE__{
+    auth = %Auth{
       rancher_hostname: Config.get("rancher_hostname"),
       rancher_token: Config.get("rancher_token")
     }
@@ -25,34 +28,41 @@ defmodule RR.Config.Auth do
     Config.put("rancher_token", auth.rancher_token)
   end
 
+  @spec ensure_valid_auth() :: {:ok, Auth.t()} | {:error, binary()}
   def ensure_valid_auth do
     with {:ok, auth} <- get_auth() do
-      case cached_auth_result(auth) do
-        {:ok, _auth} = ok ->
-          ok
-
-        {:error, _reason} = error ->
-          error
-
-        :miss ->
-          with {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
-               result <- ensure_token_info_valid(token_info) do
-            cache_auth_result(auth, result)
-
-            case result do
-              {:ok, _token_description} -> {:ok, auth}
-              {:error, reason} -> {:error, reason}
-            end
-          else
-            {:error, reason} ->
-              cache_auth_result(auth, {:error, reason})
-              {:error, reason}
-          end
-      end
+      check_auth_validity_from_ets_or_rancher(auth)
     end
   end
 
-  def ensure_token_info_valid(token_info) do
+  @spec check_auth_validity_from_ets_or_rancher(Auth.t()) :: {:ok, Auth.t()} | {:error, binary()}
+  def check_auth_validity_from_ets_or_rancher(auth) do
+    token_expired_error_msg = "rancher token has expired. To input a valid token, run the command below\n    rr login"
+
+    with :miss <- cached_auth_result(auth),
+         {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth) do
+      result = token_valid?(token_info)
+      cache_auth_result(auth, result)
+
+      if result do
+        {:ok, auth}
+      else
+        {:error, token_expired_error_msg}
+      end
+    else
+      {:hit, true} ->
+        {:ok, auth}
+
+      {:hit, false} ->
+        {:error, token_expired_error_msg}
+
+      {:error, reason} ->
+        cache_auth_result(auth, false)
+        {:error, reason}
+    end
+  end
+
+  defp token_valid?(token_info) do
     with false <- token_info.expired,
          true <- token_info.enabled do
       creation_ts = DateTime.from_unix!(token_info.created_ts, :millisecond)
@@ -60,16 +70,19 @@ defmodule RR.Config.Auth do
 
       if DateTime.before?(DateTime.utc_now(), expiration_ts) do
         if DateTime.diff(expiration_ts, DateTime.utc_now()) < 604_800 do
-          Shell.error("warning: rancher token will expire in less than 7 days. run rr login to input a renewed token")
+          Shell.error(
+            "warning: rancher token will expire in less than 7 days. To input a valid token, run the command below\n    rr login"
+          )
+
           Shell.error("expiration time: #{DateTime.to_string(expiration_ts)}")
         end
 
-        {:ok, token_info.description}
+        true
       else
-        {:error, "rancher token has expired. run rr login to input a valid token"}
+        false
       end
     else
-      _ -> {:error, "rancher token is not valid. run rr login to input a valid token"}
+      _ -> false
     end
   end
 
@@ -77,25 +90,18 @@ defmodule RR.Config.Auth do
     ensure_auth_cache_table()
 
     case :ets.lookup(@auth_cache_table, auth_cache_key(auth)) do
-      [{_key, {:ok, :valid}}] -> {:ok, auth}
-      [{_key, {:error, reason}}] -> {:error, reason}
+      [{_key, valid?}] when is_boolean(valid?) -> {:hit, valid?}
       _ -> :miss
     end
   end
 
-  defp cache_auth_result(auth, {:ok, _token_description}) do
+  defp cache_auth_result(auth, result) when is_boolean(result) do
     ensure_auth_cache_table()
-    :ets.insert(@auth_cache_table, {auth_cache_key(auth), {:ok, :valid}})
+    :ets.insert(@auth_cache_table, {auth_cache_key(auth), result})
     :ok
   end
 
-  defp cache_auth_result(auth, {:error, reason}) do
-    ensure_auth_cache_table()
-    :ets.insert(@auth_cache_table, {auth_cache_key(auth), {:error, reason}})
-    :ok
-  end
-
-  defp auth_cache_key(%__MODULE__{rancher_hostname: hostname, rancher_token: token}) do
+  defp auth_cache_key(%Auth{rancher_hostname: hostname, rancher_token: token}) do
     {hostname, token}
   end
 
