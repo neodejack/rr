@@ -9,13 +9,14 @@ defmodule RR.Login do
 
   def run(args) do
     with :ok <- parse_args!(args),
-         {:ok, auth} <- Auth.get_auth(),
+         {:ok, auth} <- Auth.ensure_valid_auth(),
          {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
-         {:ok, token_description} <- Auth.ensure_token_info_valid(token_info),
          true <-
            Owl.IO.confirm(
-             message:
-               "you already have a valid auth config with description '#{token_description}', are you sure you want to overwrite it?"
+             message: [
+               "you already have a valid auth config with description '#{token_info.token_description}',",
+               "are you sure you want to overwrite it?"
+             ]
            ) do
       login()
     else
@@ -37,12 +38,13 @@ defmodule RR.Login do
   def login do
     auth = prompt()
 
-    with {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
-         {:ok, token_description} <- Auth.ensure_token_info_valid(token_info) do
-      Auth.put_auth(auth)
-      Shell.info("token '#{token_description}' successfully validated and saved")
-    else
-      {:error, reason} -> Shell.raise("token validation failed with reason: \n#{reason}")
+    case Auth.check_auth_validity_from_ets_or_rancher(auth) do
+      {:ok, auth} ->
+        Auth.put_auth(auth)
+        Shell.info("token successfully validated and saved")
+
+      {:error, reason} ->
+        Shell.raise("token validation failed with reason: \n#{reason}")
     end
   end
 
