@@ -38,6 +38,7 @@ defmodule RR.MixProject do
         :rr,
         [
           steps: [:assemble, &Burrito.wrap/1],
+          vm_args: "rel/vm.args",
           burrito: [
             targets: [
               macos: [os: :darwin, cpu: :x86_64],
