@@ -39,6 +39,15 @@ defmodule RR.Config.AuthTest do
       assert {:ok, _} = Auth.ensure_valid_auth()
       assert {:ok, _} = Auth.ensure_valid_auth()
     end
+
+    test "uses cached error to avoid re-validating the token" do
+      expect(External.RancherHttpClient.Mock, :get_token_info, 1, fn _ ->
+        {:error, "boom"}
+      end)
+
+      assert {:error, "boom"} = Auth.ensure_valid_auth()
+      assert {:error, "boom"} = Auth.ensure_valid_auth()
+    end
   end
 
   defp clear_auth_cache do

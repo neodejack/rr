@@ -27,14 +27,27 @@ defmodule RR.Config.Auth do
 
   def ensure_valid_auth do
     with {:ok, auth} <- get_auth() do
-      if auth_cached?(auth) do
-        {:ok, auth}
-      else
-        with {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
-             {:ok, _token_description} <- ensure_token_info_valid(token_info) do
-          cache_auth(auth)
-          {:ok, auth}
-        end
+      case cached_auth_result(auth) do
+        {:ok, _auth} = ok ->
+          ok
+
+        {:error, _reason} = error ->
+          error
+
+        :miss ->
+          with {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
+               result <- ensure_token_info_valid(token_info) do
+            cache_auth_result(auth, result)
+
+            case result do
+              {:ok, _token_description} -> {:ok, auth}
+              {:error, reason} -> {:error, reason}
+            end
+          else
+            {:error, reason} ->
+              cache_auth_result(auth, {:error, reason})
+              {:error, reason}
+          end
       end
     end
   end
@@ -60,18 +73,25 @@ defmodule RR.Config.Auth do
     end
   end
 
-  defp auth_cached?(auth) do
+  defp cached_auth_result(auth) do
     ensure_auth_cache_table()
 
     case :ets.lookup(@auth_cache_table, auth_cache_key(auth)) do
-      [{_key, true}] -> true
-      _ -> false
+      [{_key, {:ok, :valid}}] -> {:ok, auth}
+      [{_key, {:error, reason}}] -> {:error, reason}
+      _ -> :miss
     end
   end
 
-  defp cache_auth(auth) do
+  defp cache_auth_result(auth, {:ok, _token_description}) do
     ensure_auth_cache_table()
-    :ets.insert(@auth_cache_table, {auth_cache_key(auth), true})
+    :ets.insert(@auth_cache_table, {auth_cache_key(auth), {:ok, :valid}})
+    :ok
+  end
+
+  defp cache_auth_result(auth, {:error, reason}) do
+    ensure_auth_cache_table()
+    :ets.insert(@auth_cache_table, {auth_cache_key(auth), {:error, reason}})
     :ok
   end
 
