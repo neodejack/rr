@@ -1,8 +1,6 @@
 defmodule RR.KubeConfigTest do
   use ExUnit.Case, async: true
 
-  alias RR.KubeConfig
-
   describe "test response" do
     test "test" do
     end

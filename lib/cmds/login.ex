@@ -11,6 +11,10 @@ defmodule RR.Login do
     with :ok <- parse_args!(args),
          {:ok, auth} <- Auth.ensure_valid_auth(),
          {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
+         :ok <-
+           Shell.error(
+             "you already have a valid auth config with description '#{token_info.description}'"
+           ),
          true <-
            Owl.IO.confirm(
              message: [
