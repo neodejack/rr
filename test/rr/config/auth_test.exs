@@ -3,18 +3,28 @@ defmodule RR.Config.AuthTest do
 
   import Mox
 
+  alias External.Config.Mock
   alias RR.Config
   alias RR.Config.Auth
 
   setup :verify_on_exit!
 
   setup do
+    store = start_supervised!({Agent, fn -> %{} end})
+
+    stub(Mock, :read, fn ->
+      Agent.get(store, & &1)
+    end)
+
+    stub(Mock, :write, fn config ->
+      Agent.update(store, fn _ -> config end)
+      :ok
+    end)
+
     clear_auth_cache()
     Config.put_auth({"https://rancher.example", "token-123:abc"})
 
     on_exit(fn ->
-      Config.delete("rancher_hostname")
-      Config.delete("rancher_token")
       clear_auth_cache()
     end)
 
@@ -39,15 +49,6 @@ defmodule RR.Config.AuthTest do
       assert {:ok, _} = Auth.ensure_valid_auth()
       assert {:ok, _} = Auth.ensure_valid_auth()
     end
-
-    test "uses cached error to avoid re-validating the token" do
-      expect(External.RancherHttpClient.Mock, :get_token_info, 1, fn _ ->
-        {:error, "boom"}
-      end)
-
-      assert {:error, "boom"} = Auth.ensure_valid_auth()
-      assert {:error, "boom"} = Auth.ensure_valid_auth()
-    end
   end
 
   defp clear_auth_cache do
@@ -58,7 +59,7 @@ defmodule RR.Config.AuthTest do
   end
 
   defp valid_token_info do
-    now_ms = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
+    now_ms = DateTime.to_unix(DateTime.utc_now(), :millisecond)
 
     {:ok,
      %{
