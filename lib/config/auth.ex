@@ -28,14 +28,17 @@ defmodule RR.Config.Auth do
     Config.put("rancher_token", auth.rancher_token)
   end
 
-  @spec ensure_valid_auth() :: {:ok, Auth.t()} | {:error, binary()}
+  @type error_reason :: :unauthorized | :unknown
+  @type error :: {:error, error_reason(), binary()} | {:error, binary()}
+
+  @spec ensure_valid_auth() :: {:ok, Auth.t()} | error()
   def ensure_valid_auth do
     with {:ok, auth} <- get_auth() do
       check_auth_validity_from_ets_or_rancher(auth)
     end
   end
 
-  @spec check_auth_validity_from_ets_or_rancher(Auth.t()) :: {:ok, Auth.t()} | {:error, binary()}
+  @spec check_auth_validity_from_ets_or_rancher(Auth.t()) :: {:ok, Auth.t()} | error()
   def check_auth_validity_from_ets_or_rancher(auth) do
     token_invalid_error_msg =
       "rancher token is invalid has expired. To input a valid token, run the command below\n    rr login"
@@ -48,18 +51,21 @@ defmodule RR.Config.Auth do
       if result do
         {:ok, auth}
       else
-        {:error, token_invalid_error_msg}
+        {:error, :unauthorized, token_invalid_error_msg}
       end
     else
       {:hit, true} ->
         {:ok, auth}
 
       {:hit, false} ->
-        {:error, token_invalid_error_msg}
+        {:error, :unauthorized, token_invalid_error_msg}
 
-      {:error, reason} ->
+      {:error, :unauthorized, reason} ->
         cache_auth_result(auth, false)
-        {:error, reason}
+        {:error, :unauthorized, reason}
+
+      {:error, :unknown, reason} ->
+        {:error, :unknown, reason}
     end
   end
 

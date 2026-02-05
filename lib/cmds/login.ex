@@ -11,10 +11,6 @@ defmodule RR.Login do
     with :ok <- parse_args!(args),
          {:ok, auth} <- Auth.ensure_valid_auth(),
          {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
-         :ok <-
-           Shell.error(
-             "you already have a valid auth config with description '#{token_info.description}'"
-           ),
          true <-
            Owl.IO.confirm(
              message: [
@@ -24,8 +20,10 @@ defmodule RR.Login do
            ) do
       login()
     else
-      {:error, _} -> login()
       false -> :ok
+      {:error, :unauthorized, _} -> login()
+      {:error, :unknown, message} -> Shell.raise(message)
+      {:error, _} -> login()
     end
   end
 
@@ -46,6 +44,12 @@ defmodule RR.Login do
       {:ok, auth} ->
         Auth.put_auth(auth)
         Shell.info("token successfully validated and saved")
+
+      {:error, :unauthorized, reason} ->
+        Shell.raise("token validation failed with reason: \n#{reason}")
+
+      {:error, :unknown, reason} ->
+        Shell.raise("token validation failed with reason: \n#{reason}")
 
       {:error, reason} ->
         Shell.raise("token validation failed with reason: \n#{reason}")

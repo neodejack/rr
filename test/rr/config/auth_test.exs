@@ -34,10 +34,10 @@ defmodule RR.Config.AuthTest do
   describe "ensure_valid_auth/0" do
     test "internet connection error" do
       expect(External.RancherHttpClient.Mock, :get_token_info, fn _ ->
-        {:error, inspect(%Req.TransportError{reason: :nxdomain})}
+        {:error, :unknown, inspect(%Req.TransportError{reason: :nxdomain})}
       end)
 
-      assert {:error, reason} = Auth.ensure_valid_auth()
+      assert {:error, :unknown, reason} = Auth.ensure_valid_auth()
       assert reason =~ "nxdomain"
     end
 
