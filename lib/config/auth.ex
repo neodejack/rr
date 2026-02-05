@@ -37,7 +37,8 @@ defmodule RR.Config.Auth do
 
   @spec check_auth_validity_from_ets_or_rancher(Auth.t()) :: {:ok, Auth.t()} | {:error, binary()}
   def check_auth_validity_from_ets_or_rancher(auth) do
-    token_expired_error_msg = "rancher token has expired. To input a valid token, run the command below\n    rr login"
+    token_invalid_error_msg =
+      "rancher token is invalid has expired. To input a valid token, run the command below\n    rr login"
 
     with :miss <- cached_auth_result(auth),
          {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth) do
@@ -47,14 +48,14 @@ defmodule RR.Config.Auth do
       if result do
         {:ok, auth}
       else
-        {:error, token_expired_error_msg}
+        {:error, token_invalid_error_msg}
       end
     else
       {:hit, true} ->
         {:ok, auth}
 
       {:hit, false} ->
-        {:error, token_expired_error_msg}
+        {:error, token_invalid_error_msg}
 
       {:error, reason} ->
         cache_auth_result(auth, false)
@@ -70,11 +71,11 @@ defmodule RR.Config.Auth do
 
       if DateTime.before?(DateTime.utc_now(), expiration_ts) do
         if DateTime.diff(expiration_ts, DateTime.utc_now()) < 604_800 do
-          Shell.error(
-            "warning: rancher token will expire in less than 7 days. To input a valid token, run the command below\n    rr login"
-          )
+          Shell.error("warning: rancher token will expire in less than 7 days.")
 
           Shell.error("expiration time: #{DateTime.to_string(expiration_ts)}")
+
+          Shell.error("To input a valid token, run the command below\n\n    rr login\n")
         end
 
         true

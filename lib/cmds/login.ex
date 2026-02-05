@@ -14,7 +14,7 @@ defmodule RR.Login do
          true <-
            Owl.IO.confirm(
              message: [
-               "you already have a valid auth config with description '#{token_info.token_description}',",
+               "you already have a valid auth config with description '#{token_info.description}',",
                "are you sure you want to overwrite it?"
              ]
            ) do
