@@ -63,14 +63,14 @@ defmodule External.RancherHttpClient.Impl do
            ttl: body["ttl"]
          }}
 
-      {:ok, %Req.Response{status: 401}} ->
-        {:error, "rancher token is not valid\nrun `rr login` to input a valid token"}
+      {:ok, %Req.Response{status: status}} when status in [401, 403] ->
+        {:error, :unauthorized, "rancher token is not valid or has expired"}
 
       {:ok, resp} ->
-        {:error, "rancher api error - GET #{url}\n#{inspect(resp.body)}"}
+        {:error, :unknown, "rancher api error - GET #{url}\n#{inspect(resp.body)}"}
 
       {_, error} ->
-        {:error, "rancher api error - GET #{url}\n#{inspect(error)}"}
+        {:error, :unknown, "rancher api error - GET #{url}\n#{inspect(error)}"}
     end
   end
 
@@ -81,6 +81,12 @@ defmodule External.RancherHttpClient.Impl do
           base_url: auth.rancher_hostname,
           auth: {:bearer, auth.rancher_token}
         )
+
+      {:error, :unauthorized, err} ->
+        Shell.raise(err)
+
+      {:error, :unknown, err} ->
+        Shell.raise(err)
 
       {:error, err} ->
         Shell.raise(err)

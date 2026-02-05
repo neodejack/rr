@@ -12,7 +12,17 @@ defmodule External.RancherHttpClient do
 
   def get_kubeconfig!(kubeconfig), do: impl().get_kubeconfig!(kubeconfig)
 
-  @callback get_token_info(%Auth{}) :: any()
+  @type token_info :: %{
+          description: binary(),
+          expired: boolean(),
+          enabled: boolean(),
+          created_ts: integer(),
+          ttl: integer()
+        }
+  @type token_error_reason :: :unauthorized | :unknown
+  @type token_error :: {:error, token_error_reason(), binary()}
+
+  @callback get_token_info(%Auth{}) :: {:ok, token_info()} | token_error()
 
   def get_token_info(auth), do: impl().get_token_info(auth)
 
