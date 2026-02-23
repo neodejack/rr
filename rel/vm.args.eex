@@ -1,0 +1,2 @@
+## Disable BREAK handler so Ctrl-C terminates without opening the BREAK menu.
++Bd
