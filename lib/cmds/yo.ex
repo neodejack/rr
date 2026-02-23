@@ -1,11 +1,11 @@
-defmodule RR.Zsh do
+defmodule RR.Yo do
   @moduledoc false
   alias RR.Shell
 
   def run(args) do
     parse_args!(args)
 
-    zsh_template_path()
+    yo_template_path()
     |> EEx.eval_file()
     |> Shell.info()
   end
@@ -31,19 +31,19 @@ defmodule RR.Zsh do
 
   defp render_help do
     Shell.info("""
-    output zsh integration for rr
+    output shell integration for rr (works with both zsh and bash)
 
     USAGE:
-      rr zsh
+      rr yo
     """)
 
     System.halt(0)
   end
 
-  defp zsh_template_path do
+  defp yo_template_path do
     :rr
     |> :code.priv_dir()
     |> to_string()
-    |> Path.join("templates/zsh_integration.eex")
+    |> Path.join("templates/yo.eex")
   end
 end
