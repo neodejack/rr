@@ -47,3 +47,4 @@ echo 'eval "$(rr zsh)"' >> ~/.zshrc
 this defines a `yo` helper, so i can just call `yo us_west` to connect to us_west k8s cluster in my current shell
 
 Note: in release binaries, pressing Ctrl-C exits immediately (no IEx BREAK menu).
+If you rebuild the same version locally, run `rr maintenance uninstall` once to force Burrito to re-extract the runtime.

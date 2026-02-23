@@ -1,2 +1,0 @@
-# Disable the BREAK handler so Ctrl-C doesn't open the IEx menu in releases.
-+Bd

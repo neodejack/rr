@@ -11,7 +11,8 @@
 - `mix compile` builds the project.
 - `iex -S mix` runs the CLI in an interactive shell for local debugging.
 - `mix test` runs the full test suite; `mix test test/rr/kf_test.exs` runs a single file.
-- `MIX_ENV=prod mix release` produces Burrito-wrapped binaries in `burrito_out/`.
+- `MIX_ENV=prod BURRITO_TARGET=macos_arm mix release --overwrite` builds the local macOS arm64 Burrito binary.
+- `rr maintenance uninstall` removes Burrito's cached runtime so a rebuilt binary with the same version is re-extracted.
 - `mix format --check-formatted` verifies formatting; `mix format` applies it.
 
 ## Coding Style & Naming Conventions
