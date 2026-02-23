@@ -8,7 +8,7 @@
 brew install neodejack/tap/rr
 ```
 
-try running `rr`, mac's security feature should block you from doing this. you need to open up settings -> privacy & security and manually allow this binary to run
+try running `rr`, mac's security feature probably would block you from doing this. you need to open up settings -> privacy & security and manually allow this binary to run
 
 ### If you are using windows
 
@@ -29,10 +29,14 @@ rr login
 some useful commands
 
 ```bash
-# it will output a path contain kubeconfig that can connect to us_west
+# this will list all the clusters in the rancher cluster
+
+rr list
+
+# this will output a path contain kubeconfig that can connect to us_west
 rr kf us_west
 
-# it will output "export" command with a path contain kubeconfig that can connect to us_west
+# this will output "export" command with a path contain kubeconfig that can connect to us_west
 rr kf us_west --sh
 ```
 
@@ -41,7 +45,7 @@ rr kf us_west --sh
 3. i like to set up this thing in my .zshrc
 
 ```bash
-echo 'eval "$(rr zsh)"' >> ~/.zshrc
+rr yo >> ~/.zshrc
 ```
 
 this defines a `yo` helper, so i can just call `yo us_west` to connect to us_west k8s cluster in my current shell
