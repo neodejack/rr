@@ -4,7 +4,7 @@ defmodule RR.MixProject do
   def project do
     [
       app: :rr,
-      version: "0.1.11-rc1",
+      version: "0.1.11-rc2",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -38,7 +38,6 @@ defmodule RR.MixProject do
         :rr,
         [
           steps: [:assemble, &Burrito.wrap/1],
-          vm_args: "rel/vm.args",
           burrito: [
             targets: [
               macos: [os: :darwin, cpu: :x86_64],
