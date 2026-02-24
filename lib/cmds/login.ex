@@ -8,7 +8,7 @@ defmodule RR.Login do
   alias RR.Shell
 
   def run(args) do
-    with :ok <- parse_args!(args),
+    with :ok <- parse_args(args),
          {:ok, auth} <- Auth.ensure_valid_auth(),
          {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
          true <-
@@ -22,41 +22,42 @@ defmodule RR.Login do
     else
       false -> :ok
       {:error, :unauthorized, _} -> login()
-      {:error, :unknown, message} -> Shell.raise(message)
+      {:error, :unknown, message} -> {:error, message}
       {:error, _} -> login()
     end
   end
 
-  def parse_args!(args) do
+  defp parse_args(args) do
     case args do
       [] ->
         :ok
 
       _ ->
-        Shell.raise(["rr login command doesn't take any args\n", "you provided: ", args])
+        {:error, "rr login command doesn't take any args\nyou provided: #{Enum.join(args, " ")}"}
     end
   end
 
-  def login do
+  defp login do
     auth = prompt()
 
     case Auth.check_auth_validity_from_ets_or_rancher(auth) do
       {:ok, auth} ->
         Auth.put_auth(auth)
         Shell.info("token successfully validated and saved")
+        :ok
 
       {:error, :unauthorized, reason} ->
-        Shell.raise("token validation failed with reason: \n#{reason}")
+        {:error, "token validation failed with reason: \n#{reason}"}
 
       {:error, :unknown, reason} ->
-        Shell.raise("token validation failed with reason: \n#{reason}")
+        {:error, "token validation failed with reason: \n#{reason}"}
 
       {:error, reason} ->
-        Shell.raise("token validation failed with reason: \n#{reason}")
+        {:error, "token validation failed with reason: \n#{reason}"}
     end
   end
 
-  def prompt do
+  defp prompt do
     hostname = Owl.IO.input(label: "rancher hostname")
     token = Owl.IO.input(label: "rancher token (in the form of token-xxxx:xxxxxx)", secret: true)
 

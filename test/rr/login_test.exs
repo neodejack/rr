@@ -78,21 +78,15 @@ defmodule RR.LoginTest do
       assert stdout =~ "you already have a valid auth config with description"
     end
 
-    test "existing valid token with transient api error prints error and exits" do
+    test "existing valid token with transient api error returns error" do
       Config.put_auth({@hostname, @token_valid})
 
       expect(RancherMock, :get_token_info, fn _ ->
         {:error, :unknown, "rancher api error - GET #{@hostname}/v3/tokens/token-valid\nboom"}
       end)
 
-      stderr =
-        ExUnit.CaptureIO.capture_io(:stderr, fn ->
-          assert_raise RuntimeError, ~r/rancher api error/, fn ->
-            Login.run([])
-          end
-        end)
-
-      assert stderr =~ "rancher api error - GET"
+      assert {:error, msg} = Login.run([])
+      assert msg =~ "rancher api error"
     end
 
     test "login with no existing token and api error does not cache or save" do
@@ -100,16 +94,14 @@ defmodule RR.LoginTest do
         {:error, :unknown, "rancher api error - GET #{@hostname}/v3/tokens/token-valid\nboom"}
       end)
 
-      {stderr, _stdout} =
-        ExUnit.CaptureIO.with_io([input: "#{@hostname}\n#{@token_valid}\n"], fn ->
-          ExUnit.CaptureIO.capture_io(:stderr, fn ->
-            assert_raise RuntimeError, ~r/token validation failed/, fn ->
-              Login.run([])
-            end
-          end)
+      result =
+        ExUnit.CaptureIO.capture_io([input: "#{@hostname}\n#{@token_valid}\n"], fn ->
+          send(self(), {:result, Login.run([])})
         end)
 
-      assert stderr =~ "token validation failed"
+      assert_received {:result, {:error, msg}}
+      assert msg =~ "token validation failed"
+      assert result =~ "rancher hostname"
       assert Config.get_auth() == {nil, nil}
 
       case :ets.whereis(:rr_auth_cache) do

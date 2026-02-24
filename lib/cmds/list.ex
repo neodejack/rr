@@ -4,20 +4,17 @@ defmodule RR.List do
   alias RR.Shell
 
   def run(args) do
-    parse_args!(args)
+    with :ok <- parse_args(args),
+         {:ok, clusters} <- RancherHttpClient.get_clusters() do
+      clusters
+      |> to_rows()
+      |> render_table()
 
-    case RancherHttpClient.get_clusters() do
-      {:ok, clusters} ->
-        clusters
-        |> to_rows()
-        |> render_table()
-
-      {:error, err_msg} ->
-        Shell.raise(err_msg)
+      :ok
     end
   end
 
-  defp parse_args!(args) do
+  defp parse_args(args) do
     with {switches, rest, []} <- OptionParser.parse(args, args_definition()),
          false <- Keyword.has_key?(switches, :help),
          [] <- rest do
@@ -44,7 +41,7 @@ defmodule RR.List do
       rr list
     """)
 
-    System.halt(0)
+    :ok
   end
 
   defp to_rows(clusters) do

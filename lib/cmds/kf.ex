@@ -9,36 +9,24 @@ defmodule RR.KubeConfig do
   defstruct [:id, :name, :kubeconfig]
 
   def run(args) do
-    {switches, cluster_name_substring} = parse_args!(args)
+    with {:ok, {switches, cluster_name_substring}} <- parse_args(args) do
+      cluster_name_substring = Alias.resolve(cluster_name_substring)
 
-    cluster_name_substring = Alias.resolve(cluster_name_substring)
-
-    {:ok, target_cluster} =
-      case RancherHttpClient.get_clusters() do
-        {:ok, clusters} ->
-          clusters
-          |> parse_cluster()
-          |> select_cluster(cluster_name_substring)
-
-        {:error, err_msg} ->
-          Shell.raise(err_msg)
+      with {:ok, clusters} <- RancherHttpClient.get_clusters(),
+           {:ok, target_cluster} <- clusters |> parse_cluster() |> select_cluster(cluster_name_substring),
+           {:ok, kubconfig_path} <- ensure_valid_kubeconfig(target_cluster, Keyword.get(switches, :new, false)) do
+        output_kubeconfig_path(kubconfig_path, Keyword.get(switches, :sh, false))
+        :ok
       end
-
-    kubconfig_path =
-      case ensure_valid_kubeconfig(target_cluster, Keyword.get(switches, :new, false)) do
-        {:ok, path} -> path
-        {:error, err_msg} -> Shell.raise(err_msg)
-      end
-
-    output_kubeconfig_path(kubconfig_path, Keyword.get(switches, :sh, false))
+    end
   end
 
-  def parse_args!(args) do
-    with {switches, _, _} = args <- OptionParser.parse(args, args_definition()),
+  defp parse_args(args) do
+    with {switches, _, _} = parsed <- OptionParser.parse(args, args_definition()),
          false <- Keyword.has_key?(switches, :help) do
-      case args do
+      case parsed do
         {switches, [cluster], []} ->
-          {switches, cluster}
+          {:ok, {switches, cluster}}
 
         {_switches, [_cluster], invalid_args} ->
           invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
@@ -54,7 +42,7 @@ defmodule RR.KubeConfig do
           render_help()
 
         {_switches, [_ | _] = clusters, _} ->
-          Shell.raise([
+          Shell.error([
             "you provided more than one clusters: ",
             Enum.intersperse(clusters, ", ")
           ])
@@ -66,7 +54,7 @@ defmodule RR.KubeConfig do
     end
   end
 
-  def args_definition do
+  defp args_definition do
     [
       strict: [
         help: :boolean,
@@ -77,7 +65,7 @@ defmodule RR.KubeConfig do
     ]
   end
 
-  def render_help do
+  defp render_help do
     Shell.info("""
     obtain and manage kubeconfigs from rancher
 
@@ -92,7 +80,7 @@ defmodule RR.KubeConfig do
       --sh Generate `export KUBECONIFG=` shell command to use a kubeconfig in the current shell.
     """)
 
-    System.halt(0)
+    :ok
   end
 
   defp ensure_valid_kubeconfig(kubeconfig, overwrite_existing_kf)
@@ -104,7 +92,7 @@ defmodule RR.KubeConfig do
       {:ok, kubeconfig_file_path(kubeconfig)}
     else
       kubeconfig
-      |> RancherHttpClient.get_kubeconfig!()
+      |> RancherHttpClient.get_kubeconfig()
       |> save_to_file()
     end
   end
@@ -113,7 +101,7 @@ defmodule RR.KubeConfig do
     Shell.info_stderr("overwriting existing valid kubeconfig: #{kubeconfig_file_path(kubeconfig)}")
 
     kubeconfig
-    |> RancherHttpClient.get_kubeconfig!()
+    |> RancherHttpClient.get_kubeconfig()
     |> save_to_file()
   end
 
@@ -140,7 +128,7 @@ defmodule RR.KubeConfig do
     end
   end
 
-  defp save_to_file(target_cluster) do
+  defp save_to_file({:ok, target_cluster}) do
     with :ok <- File.mkdir_p(kubeconfig_dir()),
          kb_path = kubeconfig_file_path(target_cluster),
          :ok <- File.write(kb_path, target_cluster.kubeconfig) do
@@ -150,6 +138,8 @@ defmodule RR.KubeConfig do
       {:error, err} -> {:error, ["error when saving kubeconfig:\n", err]}
     end
   end
+
+  defp save_to_file({:error, _} = error), do: error
 
   defp parse_cluster(raw_clusters) when is_list(raw_clusters) and [] != raw_clusters do
     Enum.map(raw_clusters, &%__MODULE__{id: &1["id"], name: &1["name"]})
