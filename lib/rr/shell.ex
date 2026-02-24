@@ -1,6 +1,6 @@
 defmodule RR.Shell do
   @moduledoc false
-  def info(message) do
+  def info_stdout(message) do
     IO.puts(IO.ANSI.format(message))
   end
 
