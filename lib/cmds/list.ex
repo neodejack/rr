@@ -15,12 +15,24 @@ defmodule RR.List do
   end
 
   defp parse_args(args) do
-    with {switches, rest, []} <- OptionParser.parse(args, args_definition()),
-         false <- Keyword.has_key?(switches, :help),
-         [] <- rest do
-      :ok
-    else
-      _ -> render_help()
+    {switches, rest, invalid_args} = OptionParser.parse(args, args_definition())
+
+    cond do
+      invalid_args != [] ->
+        invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
+        render_help()
+        {:error, ["the arguments you provided are invalid:\nyou provided: #{Enum.join(invalids, " ")}"]}
+
+      Keyword.has_key?(switches, :help) ->
+        render_help()
+        :ok
+
+      rest != [] ->
+        render_help()
+        {:error, "the subcommands you provided are invalid\nyou provided: #{Enum.join(rest, " ")}"}
+
+      true ->
+        :ok
     end
   end
 
@@ -40,8 +52,6 @@ defmodule RR.List do
     USAGE:
       rr list
     """)
-
-    :ok
   end
 
   defp to_rows(clusters) do

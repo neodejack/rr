@@ -23,35 +23,28 @@ defmodule RR.Alias do
   end
 
   defp parse_args(args) do
-    with {switches, _, _} = parsed <- OptionParser.parse(args, args_definition()),
-         false <- Keyword.has_key?(switches, :help) do
-      if Keyword.has_key?(switches, :list) do
+    {switches, rest, invalid_args} = OptionParser.parse(args, args_definition())
+
+    cond do
+      invalid_args != [] ->
+        invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
+        render_help()
+        {:error, ["the arguments you provided are invalid:", invalids]}
+
+      Keyword.has_key?(switches, :help) ->
+        render_help()
+        :ok
+
+      Keyword.has_key?(switches, :list) ->
         render_alias_list()
-      else
-        case parsed do
-          {_, [alias_name, full], []} ->
-            {:ok, {alias_name, full}}
 
-          {_switches, _cluster, [_invalid | _] = invalid_args} ->
-            invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
+      match?([_, _], rest) ->
+        [alias_name, full] = rest
+        {:ok, {alias_name, full}}
 
-            Shell.error([
-              "the arguments you provided are invalid:",
-              invalids
-            ])
-
-            render_help()
-
-          {_switches, _cluster, _} ->
-            Shell.error([
-              "you didn't provide valid <cluster_alias> and <cluster_full_name>"
-            ])
-
-            render_help()
-        end
-      end
-    else
-      true -> render_help()
+      true ->
+        render_help()
+        {:error, "you didn't provide valid <cluster_alias> and <cluster_full_name>"}
     end
   end
 
@@ -94,7 +87,5 @@ defmodule RR.Alias do
     FlAGS:
       --list List all the aliases currently set
     """)
-
-    :ok
   end
 end
