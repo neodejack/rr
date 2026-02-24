@@ -46,7 +46,7 @@ defmodule RR.List do
   end
 
   defp render_help do
-    Shell.info("""
+    Shell.info_stdout("""
     list rancher clusters
 
     USAGE:
@@ -82,6 +82,6 @@ defmodule RR.List do
           [header, separator | data]
       end
 
-    Shell.info(Enum.join(lines, "\n"))
+    Shell.info_stdout(Enum.join(lines, "\n"))
   end
 end

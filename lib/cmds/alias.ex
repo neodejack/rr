@@ -6,7 +6,7 @@ defmodule RR.Alias do
   def run(args) do
     with {:ok, {alias_name, full_name}} <- parse_args(args) do
       Config.put_in([Access.key("alias", %{}), alias_name], full_name)
-      Shell.info("alias: #{alias_name} -> #{full_name} ")
+      Shell.info_stdout("alias: #{alias_name} -> #{full_name} ")
       :ok
     end
   end
@@ -62,20 +62,20 @@ defmodule RR.Alias do
     aliases = Config.get_in(["alias"])
 
     if map_size(aliases) > 0 do
-      Shell.info("these aliases are found:\n")
+      Shell.info_stdout("these aliases are found:\n")
 
       aliases
       |> Enum.map(fn {alias_name, full_name} -> "  #{alias_name} -> #{full_name}\n" end)
-      |> Shell.info()
+      |> Shell.info_stdout()
     else
-      Shell.info("no aliases set")
+      Shell.info_stdout("no aliases set")
     end
 
     :ok
   end
 
   defp render_help do
-    Shell.info("""
+    Shell.info_stdout("""
 
     `rr alias` set alias. 
     alias will be substituted when used in `rr kf <alias>

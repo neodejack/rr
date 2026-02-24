@@ -6,7 +6,7 @@ defmodule RR.Yo do
     with :ok <- parse_args(args) do
       yo_template_path()
       |> EEx.eval_file()
-      |> Shell.info()
+      |> Shell.info_stdout()
 
       :ok
     end
@@ -44,7 +44,7 @@ defmodule RR.Yo do
   end
 
   defp render_help do
-    Shell.info("""
+    Shell.info_stdout("""
     output shell integration for rr (works with both zsh and bash)
 
     USAGE:

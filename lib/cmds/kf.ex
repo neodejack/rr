@@ -60,7 +60,7 @@ defmodule RR.KubeConfig do
   end
 
   defp render_help do
-    Shell.info("""
+    Shell.info_stdout("""
     obtain and manage kubeconfigs from rancher
 
     USAGE:
@@ -102,11 +102,11 @@ defmodule RR.KubeConfig do
   defp output_kubeconfig_path(kubconfig_path, true) do
     sh_template_path()
     |> EEx.eval_file(kf_path: kubconfig_path)
-    |> Shell.info()
+    |> Shell.info_stdout()
   end
 
   defp output_kubeconfig_path(kubconfig_path, false) do
-    Shell.info(kubconfig_path)
+    Shell.info_stdout(kubconfig_path)
   end
 
   defp kf_valid?(kubeconifg) do

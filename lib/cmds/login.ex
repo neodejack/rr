@@ -43,7 +43,7 @@ defmodule RR.Login do
     case Auth.check_auth_validity_from_ets_or_rancher(auth) do
       {:ok, auth} ->
         Auth.put_auth(auth)
-        Shell.info("token successfully validated and saved")
+        Shell.info_stdout("token successfully validated and saved")
         :ok
 
       {:error, :unauthorized, reason} ->

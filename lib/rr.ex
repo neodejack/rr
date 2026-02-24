@@ -62,12 +62,12 @@ defmodule RR do
   end
 
   defp render_version do
-    RR.Shell.info(Application.spec(:rr)[:vsn])
+    RR.Shell.info_stdout(Application.spec(:rr)[:vsn])
     :ok
   end
 
   defp render_help do
-    RR.Shell.info("""
+    RR.Shell.info_stdout("""
     playing with rancher generated kubeconfigs
 
     COMMANDS
@@ -77,7 +77,7 @@ defmodule RR do
       yo        : output shell integration (zsh/bash)
     """)
 
-    RR.Shell.info(["current version: ", Application.spec(:rr)[:vsn]])
+    RR.Shell.info_stdout(["current version: ", Application.spec(:rr)[:vsn]])
     :ok
   end
 end
