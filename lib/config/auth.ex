@@ -72,7 +72,7 @@ defmodule RR.Config.Auth do
   defp token_valid?(token_info) do
     with false <- token_info.expired,
          true <- token_info.enabled do
-      creation_ts = DateTime.from_unix!(token_info.created_ts, :millisecond)
+      {:ok, creation_ts} = DateTime.from_unix(token_info.created_ts, :millisecond)
       expiration_ts = DateTime.add(creation_ts, token_info.ttl, :millisecond)
 
       if DateTime.before?(DateTime.utc_now(), expiration_ts) do

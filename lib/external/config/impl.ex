@@ -17,11 +17,9 @@ defmodule External.Config.Impl do
 
   @impl true
   def write(config) do
-    if not File.dir?(home_dir()) do
-      File.mkdir_p!(home_dir())
+    with :ok <- File.mkdir_p(home_dir()) do
+      File.write(file(), JSON.encode!(config))
     end
-
-    File.write!(file(), JSON.encode!(config))
   end
 
   defp file do

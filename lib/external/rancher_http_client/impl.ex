@@ -10,8 +10,9 @@ defmodule External.RancherHttpClient.Impl do
   def get_clusters do
     url = "/v3/clusters"
 
-    with {:ok, req} <- rancher_base_req() do
-      case Req.get!(req, url: url) do
+    with {:ok, req} <- rancher_base_req(),
+         {:ok, resp} <- Req.get(req, url: url) do
+      case resp do
         %Req.Response{status: 200, body: body} ->
           if [] == body["data"] do
             {:error, "no clusters info found"}
@@ -23,6 +24,12 @@ defmodule External.RancherHttpClient.Impl do
           Shell.error(inspect(non_200_resp))
           {:error, "http error for #{url}"}
       end
+    else
+      {:error, %Req.TransportError{} = err} ->
+        {:error, "http request failed for #{url}: #{Exception.message(err)}"}
+
+      {:error, _} = error ->
+        error
     end
   end
 
@@ -30,12 +37,13 @@ defmodule External.RancherHttpClient.Impl do
   def get_kubeconfig(%KubeConfig{id: id} = kubeconfig) do
     url = "/v3/clusters/#{id}?action=generateKubeconfig"
 
-    with {:ok, req} <- rancher_base_req() do
-      case Req.post!(req, url: url) do
-        %Req.Response{status: 200} = resp ->
+    with {:ok, req} <- rancher_base_req(),
+         {:ok, resp} <- Req.post(req, url: url) do
+      case resp do
+        %Req.Response{status: 200} ->
           {:ok, %{kubeconfig | kubeconfig: resp.body["config"]}}
 
-        resp ->
+        _ ->
           {:error,
            IO.iodata_to_binary([
              "http request to rancher api failed.\n",
@@ -45,12 +53,18 @@ defmodule External.RancherHttpClient.Impl do
              inspect(resp.body)
            ])}
       end
+    else
+      {:error, %Req.TransportError{} = err} ->
+        {:error, "http request failed for #{url}: #{Exception.message(err)}"}
+
+      {:error, _} = error ->
+        error
     end
   end
 
   @impl true
   def get_token_info(%Auth{rancher_hostname: rancher_hostname, rancher_token: rancher_token}) do
-    token_id = rancher_token |> String.split(":") |> hd()
+    [token_id | _] = String.split(rancher_token, ":")
 
     url = "#{rancher_hostname}/v3/tokens/#{token_id}"
 
