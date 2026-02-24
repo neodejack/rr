@@ -13,12 +13,24 @@ defmodule RR.Yo do
   end
 
   defp parse_args(args) do
-    with {switches, rest, []} <- OptionParser.parse(args, args_definition()),
-         false <- Keyword.has_key?(switches, :help),
-         [] <- rest do
-      :ok
-    else
-      _ -> render_help()
+    {switches, rest, invalid_args} = OptionParser.parse(args, args_definition())
+
+    cond do
+      invalid_args != [] ->
+        invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
+        render_help()
+        {:error, ["the arguments you provided are invalid: ", invalids]}
+
+      Keyword.has_key?(switches, :help) ->
+        render_help()
+        :ok
+
+      rest != [] ->
+        render_help()
+        {:error, "rr yo command doesn't take any args\nyou provided: #{Enum.join(rest, " ")}"}
+
+      true ->
+        :ok
     end
   end
 
@@ -38,8 +50,6 @@ defmodule RR.Yo do
     USAGE:
       rr yo
     """)
-
-    :ok
   end
 
   defp yo_template_path do

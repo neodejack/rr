@@ -22,35 +22,29 @@ defmodule RR.KubeConfig do
   end
 
   defp parse_args(args) do
-    with {switches, _, _} = parsed <- OptionParser.parse(args, args_definition()),
-         false <- Keyword.has_key?(switches, :help) do
-      case parsed do
-        {switches, [cluster], []} ->
-          {:ok, {switches, cluster}}
+    {switches, rest, invalid_args} = OptionParser.parse(args, args_definition())
 
-        {_switches, [_cluster], invalid_args} ->
-          invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
+    cond do
+      invalid_args != [] ->
+        invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
+        render_help()
+        {:error, ["the arguments you provided are invalid: ", invalids]}
 
-          Shell.error([
-            "the arguments you provided are invalid: ",
-            invalids
-          ])
+      Keyword.has_key?(switches, :help) ->
+        render_help()
+        :ok
 
-          render_help()
+      rest == [] ->
+        render_help()
+        {:error, "you didn't provide <cluster_name_substring>"}
 
-        {_switches, [], _} ->
-          render_help()
+      match?([_], rest) ->
+        [cluster] = rest
+        {:ok, {switches, cluster}}
 
-        {_switches, [_ | _] = clusters, _} ->
-          Shell.error([
-            "you provided more than one clusters: ",
-            Enum.intersperse(clusters, ", ")
-          ])
-
-          render_help()
-      end
-    else
-      true -> render_help()
+      true ->
+        render_help()
+        {:error, ["you provided more than one clusters: ", Enum.intersperse(rest, ", ")]}
     end
   end
 
@@ -79,8 +73,6 @@ defmodule RR.KubeConfig do
       --new Overwrite existing valid kubeconfigs.
       --sh Generate `export KUBECONIFG=` shell command to use a kubeconfig in the current shell.
     """)
-
-    :ok
   end
 
   defp ensure_valid_kubeconfig(kubeconfig, overwrite_existing_kf)
@@ -154,15 +146,12 @@ defmodule RR.KubeConfig do
         {:ok, cluster}
 
       [_ | _] = matched_clusters ->
-        Shell.error(
-          "more than one matches were found for the cluster name '#{cluster_name_substring}'\nthese matches are found:\n"
-        )
-
-        error_char_data = Enum.map(matched_clusters, &[" ", &1.name, "\n"])
-
-        Shell.error("#{error_char_data}")
-
-        {:error, "please make your cluster name more precise so that there will only be one single match"}
+        {:error,
+         [
+           "more than one matches were found for the cluster name '#{cluster_name_substring}'\nthese matches are found:\n",
+           Enum.map(matched_clusters, &[" ", &1.name, "\n"]),
+           "please make your cluster name more precise so that there will only be one single match"
+         ]}
     end
   end
 
