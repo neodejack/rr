@@ -1,4 +1,4 @@
 import Config
 
-config :rr, RR, enabled: true
 config :rr, :external_bound, Impl
+config :rr, :run_cli, true
