@@ -4,10 +4,11 @@ defmodule RR.Alias do
   alias RR.Shell
 
   def run(args) do
-    {alias, full_name} = parse_args!(args)
-
-    Config.put_in([Access.key("alias", %{}), alias], full_name)
-    Shell.info("alias: #{alias} -> #{full_name} ")
+    with {:ok, {alias_name, full_name}} <- parse_args(args) do
+      Config.put_in([Access.key("alias", %{}), alias_name], full_name)
+      Shell.info("alias: #{alias_name} -> #{full_name} ")
+      :ok
+    end
   end
 
   def resolve(alias) do
@@ -21,40 +22,40 @@ defmodule RR.Alias do
     end
   end
 
-  def parse_args!(args) do
-    with {switches, _, _} = args <- OptionParser.parse(args, args_definition()),
+  defp parse_args(args) do
+    with {switches, _, _} = parsed <- OptionParser.parse(args, args_definition()),
          false <- Keyword.has_key?(switches, :help) do
       if Keyword.has_key?(switches, :list) do
         render_alias_list()
-      end
+      else
+        case parsed do
+          {_, [alias_name, full], []} ->
+            {:ok, {alias_name, full}}
 
-      case args do
-        {_, [alias, full], []} ->
-          {alias, full}
+          {_switches, _cluster, [_invalid | _] = invalid_args} ->
+            invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
 
-        {_switches, _cluster, [_invalid | _] = invalid_args} ->
-          invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
+            Shell.error([
+              "the arguments you provided are invalid:",
+              invalids
+            ])
 
-          Shell.error([
-            "the arguments you provided are invalid:",
-            invalids
-          ])
+            render_help()
 
-          render_help()
+          {_switches, _cluster, _} ->
+            Shell.error([
+              "you didn't provide valid <cluster_alias> and <cluster_full_name>"
+            ])
 
-        {_switches, _cluster, _} ->
-          Shell.error([
-            "you didn't provide valid <cluster_alias> and <cluster_full_name>"
-          ])
-
-          render_help()
+            render_help()
+        end
       end
     else
       true -> render_help()
     end
   end
 
-  def args_definition do
+  defp args_definition do
     [
       strict: [
         help: :boolean,
@@ -64,23 +65,23 @@ defmodule RR.Alias do
     ]
   end
 
-  def render_alias_list do
+  defp render_alias_list do
     aliases = Config.get_in(["alias"])
 
     if map_size(aliases) > 0 do
       Shell.info("these aliases are found:\n")
 
       aliases
-      |> Enum.map(fn {alias, full_name} -> "  #{alias} -> #{full_name}\n" end)
+      |> Enum.map(fn {alias_name, full_name} -> "  #{alias_name} -> #{full_name}\n" end)
       |> Shell.info()
     else
       Shell.info("no aliases set")
     end
 
-    System.halt(0)
+    :ok
   end
 
-  def render_help do
+  defp render_help do
     Shell.info("""
 
     `rr alias` set alias. 
@@ -94,6 +95,6 @@ defmodule RR.Alias do
       --list List all the aliases currently set
     """)
 
-    System.halt(0)
+    :ok
   end
 end

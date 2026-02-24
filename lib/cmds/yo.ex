@@ -3,14 +3,16 @@ defmodule RR.Yo do
   alias RR.Shell
 
   def run(args) do
-    parse_args!(args)
+    with :ok <- parse_args(args) do
+      yo_template_path()
+      |> EEx.eval_file()
+      |> Shell.info()
 
-    yo_template_path()
-    |> EEx.eval_file()
-    |> Shell.info()
+      :ok
+    end
   end
 
-  defp parse_args!(args) do
+  defp parse_args(args) do
     with {switches, rest, []} <- OptionParser.parse(args, args_definition()),
          false <- Keyword.has_key?(switches, :help),
          [] <- rest do
@@ -37,7 +39,7 @@ defmodule RR.Yo do
       rr yo
     """)
 
-    System.halt(0)
+    :ok
   end
 
   defp yo_template_path do

@@ -8,9 +8,9 @@ defmodule External.RancherHttpClient do
 
   def get_clusters, do: impl().get_clusters()
 
-  @callback get_kubeconfig!(%KubeConfig{}) :: %KubeConfig{}
+  @callback get_kubeconfig(%KubeConfig{}) :: {:ok, %KubeConfig{}} | {:error, String.t()}
 
-  def get_kubeconfig!(kubeconfig), do: impl().get_kubeconfig!(kubeconfig)
+  def get_kubeconfig(kubeconfig), do: impl().get_kubeconfig(kubeconfig)
 
   @type token_info :: %{
           description: binary(),

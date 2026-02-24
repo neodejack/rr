@@ -10,39 +10,41 @@ defmodule External.RancherHttpClient.Impl do
   def get_clusters do
     url = "/v3/clusters"
 
-    case Req.get!(rancher_base_req!(), url: url) do
-      %Req.Response{status: 200, body: body} ->
-        if [] == body["data"] do
-          {:error, "no clusters info found"}
-        else
-          {:ok, body["data"]}
-        end
+    with {:ok, req} <- rancher_base_req() do
+      case Req.get!(req, url: url) do
+        %Req.Response{status: 200, body: body} ->
+          if [] == body["data"] do
+            {:error, "no clusters info found"}
+          else
+            {:ok, body["data"]}
+          end
 
-      non_200_resp ->
-        Shell.error(inspect(non_200_resp))
-        {:error, "http error for #{url}"}
+        non_200_resp ->
+          Shell.error(inspect(non_200_resp))
+          {:error, "http error for #{url}"}
+      end
     end
   end
 
   @impl true
-  def get_kubeconfig!(%KubeConfig{id: id} = kubeconfig) do
+  def get_kubeconfig(%KubeConfig{id: id} = kubeconfig) do
     url = "/v3/clusters/#{id}?action=generateKubeconfig"
 
-    %Req.Response{status: status} =
-      resp = Req.post!(rancher_base_req!(), url: url)
+    with {:ok, req} <- rancher_base_req() do
+      case Req.post!(req, url: url) do
+        %Req.Response{status: 200} = resp ->
+          {:ok, %{kubeconfig | kubeconfig: resp.body["config"]}}
 
-    case status do
-      200 ->
-        %{kubeconfig | kubeconfig: resp.body["config"]}
-
-      _ ->
-        Shell.raise([
-          "http request to rancher api failed.\n",
-          "request url: ",
-          url,
-          "\nerror response:\n",
-          inspect(resp.body)
-        ])
+        resp ->
+          {:error,
+           IO.iodata_to_binary([
+             "http request to rancher api failed.\n",
+             "request url: ",
+             url,
+             "\nerror response:\n",
+             inspect(resp.body)
+           ])}
+      end
     end
   end
 
@@ -74,22 +76,23 @@ defmodule External.RancherHttpClient.Impl do
     end
   end
 
-  defp rancher_base_req! do
+  defp rancher_base_req do
     case Auth.ensure_valid_auth() do
       {:ok, auth} ->
-        Req.new(
-          base_url: auth.rancher_hostname,
-          auth: {:bearer, auth.rancher_token}
-        )
+        {:ok,
+         Req.new(
+           base_url: auth.rancher_hostname,
+           auth: {:bearer, auth.rancher_token}
+         )}
 
       {:error, :unauthorized, err} ->
-        Shell.raise(err)
+        {:error, err}
 
       {:error, :unknown, err} ->
-        Shell.raise(err)
+        {:error, err}
 
-      {:error, err} ->
-        Shell.raise(err)
+      {:error, _} = error ->
+        error
     end
   end
 end
