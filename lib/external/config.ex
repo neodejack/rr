@@ -5,6 +5,7 @@ defmodule External.Config do
   @callback read() :: map()
   def read, do: impl().read()
 
+  ## FIX: the callback signature is not accurate
   @callback write(map()) :: :ok
   def write(config), do: impl().write(config)
 
