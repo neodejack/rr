@@ -1,13 +1,28 @@
 defmodule RR do
   @moduledoc false
-  use Task
 
-  def start_link(arg) do
-    Task.start_link(__MODULE__, :run, [arg])
+  def main do
+    code =
+      try do
+        case run(Burrito.Util.Args.argv()) do
+          :ok ->
+            0
+
+          {:error, msg} ->
+            RR.Shell.error(msg)
+            1
+        end
+      rescue
+        e ->
+          RR.Shell.error(Exception.message(e))
+          1
+      end
+
+    System.halt(code)
   end
 
-  def run(_arg) do
-    case Burrito.Util.Args.argv() do
+  def run(argv) do
+    case argv do
       [cmd | args] ->
         case cmd do
           "kf" ->
@@ -38,21 +53,20 @@ defmodule RR do
             render_version()
 
           _cmd ->
-            RR.Shell.error("no such commands #{cmd}")
+            {:error, "no such commands #{cmd}"}
         end
 
       [] ->
         render_help()
     end
-
-    System.halt(0)
   end
 
-  def render_version do
+  defp render_version do
     RR.Shell.info(Application.spec(:rr)[:vsn])
+    :ok
   end
 
-  def render_help do
+  defp render_help do
     RR.Shell.info("""
     playing with rancher generated kubeconfigs
 
@@ -64,5 +78,6 @@ defmodule RR do
     """)
 
     RR.Shell.info(["current version: ", Application.spec(:rr)[:vsn]])
+    :ok
   end
 end
