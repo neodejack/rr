@@ -42,7 +42,9 @@ rr kf us_west --sh
 
 `us_west` has to be substring match of the actual cluster name defined in rancher
 
-3. i like to set up this thing in my .zshrc
+## tips
+
+i like to set up this thing in my .zshrc
 
 ```bash
 rr yo >> ~/.zshrc
@@ -50,5 +52,15 @@ rr yo >> ~/.zshrc
 
 this defines a `yo` helper, so i can just call `yo us_west` to connect to us_west k8s cluster in my current shell
 
-Note: in release binaries, pressing Ctrl-C exits immediately (no IEx BREAK menu).
+it works by setting the `KUBECONFIG` env var in the current shell. so i highly suggest you to use some sort of shell prompt tool that can extract `KUBECONFIG` and indicate the kubeconfig context.
+
+for example, i use [`starship`](starship.rs) and my config to set up kubernetes context is [here](https://github.com/neodejack/.dotfiles/blob/7a95812334f20b71dd4d2ccded5811f9150470e0/starship/.config/starship.toml#L49)
+
+if you also use starship, see [starship kubernetes configuration](https://starship.rs/config/#kubernetes)
+
+if you use [`powerlevel10k`](https://github.com/romkatv/powerlevel10k), it has a built-in `kubecontext` segment — see [Show on Command](https://github.com/romkatv/powerlevel10k#show-on-command)
+
+## development
+
+Burrito (the packaging and build tool) cache the build files for same versions of build (version is defined in `mix.exs`)
 If you rebuild the same version locally, run `rr maintenance uninstall` once to force Burrito to re-extract the runtime.
