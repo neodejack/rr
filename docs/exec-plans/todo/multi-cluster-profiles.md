@@ -13,7 +13,7 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 ## Progress
 
 - [x] (2026-03-18 09:31Z) Read `docs/PLANS.md`, `docs/ARCHITECTURE.md`, and `docs/product-specs/multi-cluster-profiles.md`, then inspected the current auth, alias, list, kubeconfig, config, and Rancher boundary code paths.
-- [ ] Implement normalized multi-profile config storage, including one-time migration from the legacy single-profile keys.
+- [x] (2026-03-18 09:42Z) Implemented `RR.Config.Profiles` with normalized `"profiles"` storage, legacy migration from root auth and alias keys into `"default"`, and focused ExUnit coverage for profile helpers and alias resolution.
 - [ ] Refactor auth validation and Rancher HTTP boundaries so commands pass explicit auth structs instead of relying on one implicit global auth.
 - [ ] Update `rr login`, `rr list`, `rr kf`, and `rr alias` to accept `-p` / `--profile` and follow the product-spec flows when `-p` is omitted.
 - [ ] Make alias lookup, cluster search, and kubeconfig cache paths profile-aware.
@@ -33,6 +33,9 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 
 - Observation: test coverage is strongest around auth and login, while kubeconfig and alias behavior are either missing or skeletal.
   Evidence: `test/rr/login_test.exs` and `test/rr/config/auth_test.exs` contain substantial coverage, `test/rr/kf_test.exs` is still a placeholder, and there is no `test/rr/alias_test.exs`.
+
+- Observation: normalizing even an empty config into `%{"profiles" => %{}}` makes the on-disk shape stable and lets later code assume the top-level `"profiles"` key always exists after the first profile-store read.
+  Evidence: `test/rr/config/profiles_test.exs` now asserts that `RR.Config.Profiles.state/0` rewrites `%{}` into the explicit multi-profile shape on first read.
 
 ## Decision Log
 
@@ -62,7 +65,7 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 
 ## Outcomes & Retrospective
 
-The implementation work has not started yet. The planning outcome is a concrete path that preserves existing user state, keeps the Mox-based external boundaries testable, and closes two hidden collision problems that the product spec implies but the current code does not handle: alias reuse across profiles and kubeconfig path reuse across profiles.
+The first implementation slice is complete. The repository now has a dedicated `RR.Config.Profiles` module with one-time legacy migration, normalized profile storage, profile-scoped alias helpers, and focused tests proving that both migration and ambiguous alias resolution behave deterministically. The next slice is still the auth and Rancher boundary refactor that lets commands select one or many concrete auth structs without reading global config implicitly.
 
 The main residual risk is scope expansion while reshaping the config layout. The implementation should stay disciplined about changing only the four user-facing commands named in the product spec plus the supporting persistence and Rancher boundary code they depend on.
 
@@ -264,3 +267,5 @@ In tests, keep using the `External.Config` and `External.RancherHttpClient` beha
 ## Change Note
 
 Created the initial ExecPlan from `docs/product-specs/multi-cluster-profiles.md` and the current repository state on 2026-03-18. The plan records the concrete config migration, Rancher boundary refactor, profile-scoped alias storage, and kubeconfig path changes needed so later implementation work can proceed without rediscovering these constraints.
+
+Updated on 2026-03-18 after landing the first implementation slice. The document now records the completed profile-store work, the decision to normalize empty configs into an explicit `"profiles"` map, and the fact that focused profile-store tests now exist and pass.
