@@ -19,7 +19,7 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 - [x] (2026-03-18 09:57Z) Updated `rr alias` and `rr kf` for profile-aware behavior: both commands now accept `-p`, alias writes prompt for or validate a profile, `kf` resolves aliases within profile scope or across profiles with explicit ambiguity guidance, and kubeconfigs are now stored under per-profile directories.
 - [x] (2026-03-18 09:57Z) Added focused ExUnit coverage for alias command behavior, kubeconfig profile scoping, cross-profile ambiguity handling, and the new profile-scoped kubeconfig cache path layout.
 - [x] (2026-03-18 09:57Z) Added focused ExUnit coverage for profile storage, login flows, list rendering, alias scoping, kubeconfig path selection, and ambiguous cross-profile matches across six focused test files.
-- [ ] Run focused tests during implementation, then finish with `just check` and one manual `RR_HOME` end-to-end validation flow.
+- [ ] (2026-03-18 09:59Z) Completed the focused test runs and `just check`, and performed a temporary-`RR_HOME` manual smoke pass for non-networked CLI paths (`alias --list`, `list -p missing`, `kf -p missing`). Remaining: a Rancher-backed manual end-to-end smoke flow still needs real credentials and was not possible in this session.
 
 ## Surprises & Discoveries
 
@@ -76,6 +76,8 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 ## Outcomes & Retrospective
 
 The feature implementation is now functionally complete. The repository has the profile store, explicit-auth Rancher boundary, profile-aware `login`/`list`/`alias`/`kf` flows, ambiguous cross-profile match handling, and profile-scoped kubeconfig cache paths. The remaining work is verification and cleanup: run the full project checks, do one manual `RR_HOME` smoke test, and then move the ExecPlan to reflect completion.
+
+Verification is mostly complete. `just check` passes, all focused ExUnit coverage added during the work passes, and a manual temporary-`RR_HOME` smoke pass confirmed the non-networked CLI paths behave as expected with seeded multi-profile state. The only outstanding gap is the real Rancher-backed manual flow from the plan, which still requires valid external credentials and therefore could not be exercised in this session.
 
 The main residual risk is scope expansion while reshaping the config layout. The implementation should stay disciplined about changing only the four user-facing commands named in the product spec plus the supporting persistence and Rancher boundary code they depend on.
 
@@ -285,3 +287,5 @@ Updated again on 2026-03-18 after landing the explicit-auth refactor. The plan n
 Updated again on 2026-03-18 after landing the `login` and `list` command slice. The progress checklist now splits the remaining user-facing work so the outstanding `alias`/`kf` profile behavior and kubeconfig path changes are explicit.
 
 Updated again on 2026-03-18 after landing the `alias` and `kf` slice. The checklist now records the profile-scoped alias command behavior, cross-profile ambiguity handling, and profile-scoped kubeconfig path layout as implemented, leaving only final verification work.
+
+Updated again on 2026-03-18 after the verification pass. The plan now records the successful focused tests, `just check`, and the partial manual smoke coverage, along with the remaining credential-dependent validation gap.
