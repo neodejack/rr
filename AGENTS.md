@@ -1,37 +1,41 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-- `lib/` contains the Elixir source. CLI entrypoint is `lib/rr.ex`; command modules live under `lib/cmds/`; configuration helpers are under `lib/config/`.
-- `priv/templates/` holds EEx templates (e.g., `sh.eex` for `rr kf --sh`).
-- `test/` mirrors `lib/` and uses `*_test.exs` naming (e.g., `test/rr/kf_test.exs`).
-- Build artifacts land in `_build/` and release binaries in `burrito_out/`.
+## Start Here
 
-## Build, Test, and Development Commands
-- `mix deps.get` installs dependencies.
-- `mix compile` builds the project.
-- `iex -S mix` runs the CLI in an interactive shell for local debugging.
-- `mix test` runs the full test suite; `mix test test/rr/kf_test.exs` runs a single file.
-- `MIX_ENV=prod BURRITO_TARGET=macos_arm mix release --overwrite` builds the local macOS arm64 Burrito binary.
-- `rr maintenance uninstall` removes Burrito's cached runtime so a rebuilt binary with the same version is re-extracted.
-- `mix format --check-formatted` verifies formatting; `mix format` applies it.
+- Read `docs/ARCHITECTURE.md` before making non-trivial code changes. It is the canonical code map for this repo.
+- Read `lib/rr.ex` before adding, renaming, or removing commands so the CLI dispatcher stays aligned with command modules.
+- Read the relevant test file under `test/rr/` before changing behavior in that area.
 
-## Coding Style & Naming Conventions
-- Use standard Elixir formatting (2-space indentation; `mix format` enforced).
-- Test files must end with `_test.exs` and mirror the `lib/` module path.
-- Prefer clear, lower_snake_case function names and modules that reflect their domain (`RR.Config.Auth`, `RR.Cmds.Kf`).
-- Keep command output and errors centralized in `lib/rr/shell.ex` to preserve CLI consistency.
+## Canonical Commands
 
-## Testing Guidelines
-- Framework: ExUnit. Mocks use `mox` where applicable.
-- To mock a behavior, define callbacks in the behavior module and rely on the runtime `impl()` indirection; tests use the `*.Mock` module to stub callbacks with `expect/3` and `setup :verify_on_exit!` to enforce usage.
-- Add or update tests for CLI behavior changes and config/auth edge cases.
-- Run `mix test` before submitting; target-specific tests when iterating.
+- `just setup` installs dependencies with `mix deps.get`.
+- `just compile` builds the project with `mix compile`.
+- `just dev-shell` starts `iex -S mix` for local CLI debugging.
+- `just dbg-command command` runs an `rr` command through `iex --dbg pry -S mix run --no-halt -- ...`, which is useful when you want `dbg`/pry while exercising a CLI path. For example `just dbg-command list`, `just dbg-command kf id1`. Quoted forms like `just dbg-command 'kf id1'` work too.
+- `just test` runs the full ExUnit suite.
+- `just test-target test/rr/login_test.exs` runs a focused test file or line.
+- `just lint` checks formatting with `mix format --check-formatted`.
+- `just format` rewrites formatting with `mix format`.
+- `just check` runs the standard verification pass for most changes.
+- `just release-macos-arm` builds the local Burrito binary for macOS arm64.
 
-## Commit & Pull Request Guidelines
-- Commit history favors short, imperative, lower-case summaries (e.g., “refactor”, “update readme”).
-- Use `release: vX.Y.Z` for version bumps.
-- PRs should include: a brief problem/solution summary, test commands run, and any user-facing behavior changes. Add screenshots only if CLI output changes meaningfully.
+## Editing Workflow
 
-## Configuration & Security Notes
-- Local state is stored in `~/.rr/` by default; override with `RR_HOME`.
-- Do not commit Rancher tokens or kubeconfigs. Add new secrets to environment variables or local config only.
+- Before changing command behavior, read `lib/rr.ex`, the relevant `lib/cmds/*.ex` file, and `lib/rr/shell.ex`.
+- Before changing Rancher or config behavior, read the matching `lib/external/*` behavior and implementation pair first, then the related tests under `test/rr/`.
+- Preserve the behavior-to-implementation indirection in `External.Config` and `External.RancherHttpClient`; tests rely on swapping those modules with Mox.
+- Use `RR_HOME` to point manual testing at a temporary directory so local experiments do not touch real `~/.rr` state.
+- Do not commit Rancher tokens, kubeconfigs, or files created under `RR_HOME`.
+
+## Testing Notes
+
+- ExUnit is the test framework; Mox is the mocking strategy.
+- `RR.Config.Auth` caches token validation results in ETS table `:rr_auth_cache`. Tests that exercise auth behavior should clear that cache between examples.
+- `RR.KubeConfig` validates cached kubeconfigs by shelling out to `kubectl`, so manual end-to-end testing assumes `kubectl` is installed and usable.
+- There is no separate typecheck step in this repo today. Treat `mix compile` plus focused tests as the closest verification for structural changes.
+
+## ExecPlans
+
+When writing complex features or significant refactors, use an ExecPlan from design through implementation as described in `docs/PLANS.md`.
+
+Store plans in `docs/exec-plans/` using `todo/`, `active/`, and `completed/` to reflect status.
