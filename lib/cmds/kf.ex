@@ -4,23 +4,20 @@ defmodule RR.KubeConfig do
   alias RR.Alias
   alias RR.Config
   alias RR.Config.Auth
+  alias RR.Config.Profiles
   alias RR.Shell
 
-  @enforce_keys [:id, :name]
-  defstruct [:id, :name, :kubeconfig]
+  @enforce_keys [:profile_name, :id, :name]
+  defstruct [:profile_name, :id, :name, :kubeconfig]
 
   def run(args) do
-    with {:ok, {switches, cluster_name_substring}} <- parse_args(args) do
-      cluster_name_substring = Alias.resolve(cluster_name_substring)
-
-      with {:ok, auth} <- Auth.ensure_valid_auth("default"),
-           {:ok, clusters} <- RancherHttpClient.get_clusters(auth),
-           {:ok, target_cluster} <- clusters |> parse_cluster() |> select_cluster(cluster_name_substring),
-           {:ok, kubconfig_path} <-
-             ensure_valid_kubeconfig(auth, target_cluster, Keyword.get(switches, :new, false)) do
-        output_kubeconfig_path(kubconfig_path, Keyword.get(switches, :sh, false))
-        :ok
-      end
+    with {:ok, {switches, cluster_name_substring}} <- parse_args(args),
+         {:ok, auth, target_cluster} <-
+           resolve_target_cluster(normalize_profile_name(Keyword.get(switches, :profile)), cluster_name_substring),
+         {:ok, kubconfig_path} <-
+           ensure_valid_kubeconfig(auth, target_cluster, Keyword.get(switches, :new, false)) do
+      output_kubeconfig_path(kubconfig_path, Keyword.get(switches, :sh, false))
+      :ok
     end
   end
 
@@ -56,9 +53,10 @@ defmodule RR.KubeConfig do
       strict: [
         help: :boolean,
         sh: :boolean,
-        new: :boolean
+        new: :boolean,
+        profile: :string
       ],
-      alias: [h: :help]
+      aliases: [h: :help, p: :profile]
     ]
   end
 
@@ -68,13 +66,15 @@ defmodule RR.KubeConfig do
 
     USAGE:
       rr kf <cluster_name_substring> [flags]
+      rr kf -p <profile> <cluster_name_substring> [flags]
 
       rr trys to match <cluster_name_substring> as substring of the cluster names, and will only proceed if there's one exact match.
       no match or more than one match will lead to error.
-      
-    FlAGS:
+
+    FLAGS:
       --new Overwrite existing valid kubeconfigs.
-      --sh Generate `export KUBECONIFG=` shell command to use a kubeconfig in the current shell.
+      --sh Generate `export KUBECONFIG=` shell command to use a kubeconfig in the current shell.
+      -p, --profile Target a specific profile
     """)
   end
 
@@ -124,8 +124,9 @@ defmodule RR.KubeConfig do
   end
 
   defp save_to_file({:ok, target_cluster}) do
-    with :ok <- File.mkdir_p(kubeconfig_dir()),
-         kb_path = kubeconfig_file_path(target_cluster),
+    kb_path = kubeconfig_file_path(target_cluster)
+
+    with :ok <- File.mkdir_p(Path.dirname(kb_path)),
          :ok <- File.write(kb_path, target_cluster.kubeconfig) do
       Shell.info_stderr(["new kubeconfig is saved to ", kb_path])
       {:ok, kb_path}
@@ -136,37 +137,46 @@ defmodule RR.KubeConfig do
 
   defp save_to_file({:error, _} = error), do: error
 
-  defp parse_cluster(raw_clusters) when is_list(raw_clusters) and [] != raw_clusters do
-    Enum.map(raw_clusters, &%__MODULE__{id: &1["id"], name: &1["name"]})
+  defp parse_cluster(profile_name, raw_clusters) when is_list(raw_clusters) do
+    Enum.map(raw_clusters, &%__MODULE__{profile_name: profile_name, id: &1["id"], name: &1["name"]})
   end
 
-  defp select_cluster(clusters, cluster_name_substring) do
+  defp select_cluster(clusters, cluster_name_substring, include_profile_guidance?) do
     case Enum.filter(clusters, &String.contains?(&1.name, cluster_name_substring)) do
       [] ->
-        {:error, "no match were found for the cluster name '#{cluster_name_substring}'"}
+        if include_profile_guidance? do
+          {:error, "no match were found for the cluster name '#{cluster_name_substring}' in any profile"}
+        else
+          {:error, "no match were found for the cluster name '#{cluster_name_substring}'"}
+        end
 
       [cluster] ->
         {:ok, cluster}
 
       [_ | _] = matched_clusters ->
-        {:error,
-         [
-           "more than one matches were found for the cluster name '#{cluster_name_substring}'\nthese matches are found:\n",
-           Enum.map(matched_clusters, &[" ", &1.name, "\n"]),
-           "please make your cluster name more precise so that there will only be one single match"
-         ]}
+        if include_profile_guidance? do
+          {:error,
+           render_cross_profile_ambiguity(
+             cluster_name_substring,
+             Enum.map(matched_clusters, &%{profile_name: &1.profile_name, cluster_name: &1.name})
+           )}
+        else
+          {:error,
+           [
+             "more than one matches were found for the cluster name '#{cluster_name_substring}'\nthese matches are found:\n",
+             Enum.map(matched_clusters, &[" ", &1.name, "\n"]),
+             "please make your cluster name more precise so that there will only be one single match"
+           ]}
+        end
     end
   end
 
-  defp kubeconfig_dir do
-    Path.join(Config.home_dir(), "kubeconfigs")
+  defp kubeconfig_dir(profile_name) do
+    Path.join([Config.home_dir(), "kubeconfigs", profile_name])
   end
 
-  defp kubeconfig_file_path(%__MODULE__{name: name}) do
-    Path.join(
-      kubeconfig_dir(),
-      name
-    )
+  defp kubeconfig_file_path(%__MODULE__{profile_name: profile_name, name: name}) do
+    Path.join(kubeconfig_dir(profile_name), name)
   end
 
   defp sh_template_path do
@@ -174,5 +184,144 @@ defmodule RR.KubeConfig do
     |> :code.priv_dir()
     |> to_string()
     |> Path.join("templates/sh.eex")
+  end
+
+  defp resolve_target_cluster(profile_name, cluster_name_substring) when is_binary(profile_name) do
+    if Profiles.exists?(profile_name) do
+      with {:ok, auth} <- Auth.ensure_valid_auth(profile_name),
+           cluster_name = resolve_alias_in_profile(cluster_name_substring, profile_name),
+           {:ok, clusters} <- RancherHttpClient.get_clusters(auth),
+           {:ok, target_cluster} <- profile_name |> parse_cluster(clusters) |> select_cluster(cluster_name, false) do
+        {:ok, auth, target_cluster}
+      end
+    else
+      {:error, "profile '#{profile_name}' not found"}
+    end
+  end
+
+  defp resolve_target_cluster(nil, cluster_name_substring) do
+    case Profiles.names() do
+      [] ->
+        {:error, "no profiles configured\nto login, run: rr login"}
+
+      _profile_names ->
+        case Alias.resolve(cluster_name_substring) do
+          {:ok, %{profile_name: profile_name, cluster_name: cluster_name}} ->
+            Shell.info_stderr(
+              "resolving alias in profile '#{profile_name}': #{cluster_name_substring} -> #{cluster_name}"
+            )
+
+            resolve_target_cluster(profile_name, cluster_name)
+
+          {:error, :ambiguous, matches} ->
+            {:error, render_cross_profile_ambiguity(cluster_name_substring, matches)}
+
+          :miss ->
+            with {:ok, auths} <- load_all_auths(),
+                 {:ok, clusters} <- fetch_clusters_for_auths(auths),
+                 {:ok, target_cluster} <- select_cluster(clusters, cluster_name_substring, true),
+                 {:ok, auth} <- auth_for_profile(auths, target_cluster.profile_name) do
+              {:ok, auth, target_cluster}
+            end
+        end
+    end
+  end
+
+  defp resolve_alias_in_profile(cluster_name_substring, profile_name) do
+    case Alias.resolve(cluster_name_substring, profile_name) do
+      {:ok, %{cluster_name: cluster_name}} ->
+        Shell.info_stderr("resolving alias in profile '#{profile_name}': #{cluster_name_substring} -> #{cluster_name}")
+
+        cluster_name
+
+      :miss ->
+        cluster_name_substring
+    end
+  end
+
+  defp load_all_auths do
+    auths =
+      Enum.map(Profiles.names(), fn profile_name ->
+        {profile_name, Auth.ensure_valid_auth(profile_name)}
+      end)
+
+    errors =
+      Enum.flat_map(auths, fn
+        {profile_name, {:error, _reason, reason}} -> [{profile_name, reason}]
+        {profile_name, {:error, reason}} -> [{profile_name, reason}]
+        {_profile_name, {:ok, _auth}} -> []
+      end)
+
+    if errors == [] do
+      {:ok, Enum.map(auths, fn {_profile_name, {:ok, auth}} -> auth end)}
+    else
+      {:error, render_profile_errors("failed to validate one or more profiles", errors)}
+    end
+  end
+
+  defp fetch_clusters_for_auths(auths) do
+    results =
+      Enum.map(auths, fn auth ->
+        {auth.profile_name, RancherHttpClient.get_clusters(auth)}
+      end)
+
+    errors =
+      Enum.flat_map(results, fn
+        {profile_name, {:error, reason}} -> [{profile_name, reason}]
+        {_profile_name, {:ok, _clusters}} -> []
+      end)
+
+    if errors == [] do
+      {:ok,
+       Enum.flat_map(results, fn {profile_name, {:ok, clusters}} ->
+         parse_cluster(profile_name, clusters)
+       end)}
+    else
+      {:error, render_profile_errors("failed to load clusters for one or more profiles", errors)}
+    end
+  end
+
+  defp auth_for_profile(auths, profile_name) do
+    case Enum.find(auths, &(&1.profile_name == profile_name)) do
+      nil -> {:error, "profile '#{profile_name}' not found"}
+      auth -> {:ok, auth}
+    end
+  end
+
+  defp render_cross_profile_ambiguity(cluster_name_substring, matches) do
+    details =
+      matches
+      |> Enum.sort_by(fn %{profile_name: profile_name, cluster_name: cluster_name} ->
+        {profile_name, cluster_name}
+      end)
+      |> Enum.map_join("", fn %{profile_name: profile_name, cluster_name: cluster_name} ->
+        "  #{profile_name} -> #{cluster_name}\n"
+      end)
+
+    "more than one matches were found for the cluster name '#{cluster_name_substring}'\n" <>
+      "these matches are found:\n" <>
+      details <>
+      "please use -p auth_name to specify the cluster\n" <>
+      "or narrow the cluster name / use rr alias"
+  end
+
+  defp render_profile_errors(prefix, errors) do
+    details =
+      Enum.map_join(errors, "\n", fn {profile_name, reason} ->
+        "  #{profile_name}: #{reason}"
+      end)
+
+    "#{prefix}:\n#{details}"
+  end
+
+  defp normalize_profile_name(nil), do: nil
+
+  defp normalize_profile_name(profile_name) do
+    profile_name
+    |> String.trim()
+    |> case do
+      "" -> nil
+      trimmed -> trimmed
+    end
   end
 end

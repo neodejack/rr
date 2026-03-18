@@ -16,9 +16,9 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 - [x] (2026-03-18 09:42Z) Implemented `RR.Config.Profiles` with normalized `"profiles"` storage, legacy migration from root auth and alias keys into `"default"`, and focused ExUnit coverage for profile helpers and alias resolution.
 - [x] (2026-03-18 09:45Z) Refactored `RR.Config.Auth` and `External.RancherHttpClient` to use explicit profile-aware auth structs, updated the current `login`, `list`, and `kf` flows to target `"default"` through the new boundary, and added focused auth/login/list coverage for the new cache and client signatures.
 - [x] (2026-03-18 09:51Z) Updated `rr login` and `rr list` for profile-aware flows: `login` now supports `-p`, create-vs-update selection, and profile-specific overwrite prompts; `list` now supports `-p`, validates missing profiles early, and renders a combined `PROFILE` table when no profile is specified.
-- [ ] Update `rr alias` and `rr kf` to accept `-p` / `--profile` and follow the product-spec flows when `-p` is omitted.
-- [ ] Make alias lookup, cluster search, and kubeconfig cache paths profile-aware.
-- [ ] Add focused ExUnit coverage for profile storage, login flows, list rendering, alias scoping, kubeconfig path selection, and ambiguous cross-profile matches.
+- [x] (2026-03-18 09:57Z) Updated `rr alias` and `rr kf` for profile-aware behavior: both commands now accept `-p`, alias writes prompt for or validate a profile, `kf` resolves aliases within profile scope or across profiles with explicit ambiguity guidance, and kubeconfigs are now stored under per-profile directories.
+- [x] (2026-03-18 09:57Z) Added focused ExUnit coverage for alias command behavior, kubeconfig profile scoping, cross-profile ambiguity handling, and the new profile-scoped kubeconfig cache path layout.
+- [x] (2026-03-18 09:57Z) Added focused ExUnit coverage for profile storage, login flows, list rendering, alias scoping, kubeconfig path selection, and ambiguous cross-profile matches across six focused test files.
 - [ ] Run focused tests during implementation, then finish with `just check` and one manual `RR_HOME` end-to-end validation flow.
 
 ## Surprises & Discoveries
@@ -43,6 +43,9 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 
 - Observation: `Owl.IO.select/2` autoselects a single-item list, which keeps the update-existing-profile branch terse when only one profile exists and made the login tests simpler to drive deterministically.
   Evidence: the updated `test/rr/login_test.exs` no longer needs a second numeric selection when only `"default"` exists because `Owl.IO.select/2` prints `Autoselect: default`.
+
+- Observation: `RR.KubeConfig.run/1` is easiest to test with `--new` because the non-overwrite path shells out to `kubectl` to validate an existing file.
+  Evidence: `test/rr/kf_test.exs` uses a temporary `RR_HOME` and `--new` to assert the profile-scoped write path without depending on a local `kubectl` binary.
 
 ## Decision Log
 
@@ -72,7 +75,7 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 
 ## Outcomes & Retrospective
 
-The first three implementation slices are complete. The repository now has the profile store, the explicit-auth Rancher boundary, and profile-aware `login`/`list` flows. Users can already save multiple named profiles and list clusters across them with a visible `PROFILE` column. The remaining work is concentrated in `alias` and `kf`, where profile-aware alias resolution, ambiguity handling, and kubeconfig path scoping still need to be applied.
+The feature implementation is now functionally complete. The repository has the profile store, explicit-auth Rancher boundary, profile-aware `login`/`list`/`alias`/`kf` flows, ambiguous cross-profile match handling, and profile-scoped kubeconfig cache paths. The remaining work is verification and cleanup: run the full project checks, do one manual `RR_HOME` smoke test, and then move the ExecPlan to reflect completion.
 
 The main residual risk is scope expansion while reshaping the config layout. The implementation should stay disciplined about changing only the four user-facing commands named in the product spec plus the supporting persistence and Rancher boundary code they depend on.
 
@@ -280,3 +283,5 @@ Updated on 2026-03-18 after landing the first implementation slice. The document
 Updated again on 2026-03-18 after landing the explicit-auth refactor. The plan now records that `RR.Config.Auth`, the Rancher HTTP boundary, and the current default-profile command paths all use explicit auth structs, while the next work item remains the profile-aware CLI flow itself.
 
 Updated again on 2026-03-18 after landing the `login` and `list` command slice. The progress checklist now splits the remaining user-facing work so the outstanding `alias`/`kf` profile behavior and kubeconfig path changes are explicit.
+
+Updated again on 2026-03-18 after landing the `alias` and `kf` slice. The checklist now records the profile-scoped alias command behavior, cross-profile ambiguity handling, and profile-scoped kubeconfig path layout as implemented, leaving only final verification work.
