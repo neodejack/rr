@@ -4,13 +4,13 @@ defmodule External.RancherHttpClient do
   alias RR.Config.Auth
   alias RR.KubeConfig
 
-  @callback get_clusters() :: {:ok, [dynamic()]} | {:error, String.t()}
+  @callback get_clusters(Auth.t()) :: {:ok, [dynamic()]} | {:error, String.t()}
 
-  def get_clusters, do: impl().get_clusters()
+  def get_clusters(auth), do: impl().get_clusters(auth)
 
-  @callback get_kubeconfig(%KubeConfig{}) :: {:ok, %KubeConfig{}} | {:error, String.t()}
+  @callback get_kubeconfig(Auth.t(), %KubeConfig{}) :: {:ok, %KubeConfig{}} | {:error, String.t()}
 
-  def get_kubeconfig(kubeconfig), do: impl().get_kubeconfig(kubeconfig)
+  def get_kubeconfig(auth, kubeconfig), do: impl().get_kubeconfig(auth, kubeconfig)
 
   @type token_info :: %{
           description: binary(),

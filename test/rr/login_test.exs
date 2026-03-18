@@ -106,7 +106,7 @@ defmodule RR.LoginTest do
 
       case :ets.whereis(:rr_auth_cache) do
         :undefined -> :ok
-        tid -> assert :ets.lookup(tid, {@hostname, @token_valid}) == []
+        tid -> assert :ets.lookup(tid, {"default", @hostname, @token_valid}) == []
       end
     end
   end

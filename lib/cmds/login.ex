@@ -9,7 +9,7 @@ defmodule RR.Login do
 
   def run(args) do
     with :ok <- parse_args(args),
-         {:ok, auth} <- Auth.ensure_valid_auth(),
+         {:ok, auth} <- Auth.ensure_valid_auth("default"),
          {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
          true <-
            Owl.IO.confirm(
@@ -42,7 +42,7 @@ defmodule RR.Login do
 
     case Auth.check_auth_validity_from_ets_or_rancher(auth) do
       {:ok, auth} ->
-        Auth.put_auth(auth)
+        Auth.put_auth("default", auth)
         Shell.info_stdout("token successfully validated and saved")
         :ok
 
@@ -61,6 +61,6 @@ defmodule RR.Login do
     hostname = Owl.IO.input(label: "rancher hostname")
     token = Owl.IO.input(label: "rancher token (in the form of token-xxxx:xxxxxx)", secret: true)
 
-    %Auth{rancher_hostname: hostname, rancher_token: token}
+    %Auth{profile_name: "default", rancher_hostname: hostname, rancher_token: token}
   end
 end

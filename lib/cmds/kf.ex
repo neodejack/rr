@@ -3,6 +3,7 @@ defmodule RR.KubeConfig do
   alias External.RancherHttpClient
   alias RR.Alias
   alias RR.Config
+  alias RR.Config.Auth
   alias RR.Shell
 
   @enforce_keys [:id, :name]
@@ -12,9 +13,11 @@ defmodule RR.KubeConfig do
     with {:ok, {switches, cluster_name_substring}} <- parse_args(args) do
       cluster_name_substring = Alias.resolve(cluster_name_substring)
 
-      with {:ok, clusters} <- RancherHttpClient.get_clusters(),
+      with {:ok, auth} <- Auth.ensure_valid_auth("default"),
+           {:ok, clusters} <- RancherHttpClient.get_clusters(auth),
            {:ok, target_cluster} <- clusters |> parse_cluster() |> select_cluster(cluster_name_substring),
-           {:ok, kubconfig_path} <- ensure_valid_kubeconfig(target_cluster, Keyword.get(switches, :new, false)) do
+           {:ok, kubconfig_path} <-
+             ensure_valid_kubeconfig(auth, target_cluster, Keyword.get(switches, :new, false)) do
         output_kubeconfig_path(kubconfig_path, Keyword.get(switches, :sh, false))
         :ok
       end
@@ -75,25 +78,25 @@ defmodule RR.KubeConfig do
     """)
   end
 
-  defp ensure_valid_kubeconfig(kubeconfig, overwrite_existing_kf)
+  defp ensure_valid_kubeconfig(auth, kubeconfig, overwrite_existing_kf)
 
-  defp ensure_valid_kubeconfig(kubeconfig, false) do
+  defp ensure_valid_kubeconfig(auth, kubeconfig, false) do
     if kf_valid?(kubeconfig) do
       Shell.info_stderr("found existing valid kubeconifg: #{kubeconfig_file_path(kubeconfig)}")
 
       {:ok, kubeconfig_file_path(kubeconfig)}
     else
       kubeconfig
-      |> RancherHttpClient.get_kubeconfig()
+      |> then(&RancherHttpClient.get_kubeconfig(auth, &1))
       |> save_to_file()
     end
   end
 
-  defp ensure_valid_kubeconfig(kubeconfig, true) do
+  defp ensure_valid_kubeconfig(auth, kubeconfig, true) do
     Shell.info_stderr("overwriting existing valid kubeconfig: #{kubeconfig_file_path(kubeconfig)}")
 
     kubeconfig
-    |> RancherHttpClient.get_kubeconfig()
+    |> then(&RancherHttpClient.get_kubeconfig(auth, &1))
     |> save_to_file()
   end
 

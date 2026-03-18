@@ -14,7 +14,7 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 
 - [x] (2026-03-18 09:31Z) Read `docs/PLANS.md`, `docs/ARCHITECTURE.md`, and `docs/product-specs/multi-cluster-profiles.md`, then inspected the current auth, alias, list, kubeconfig, config, and Rancher boundary code paths.
 - [x] (2026-03-18 09:42Z) Implemented `RR.Config.Profiles` with normalized `"profiles"` storage, legacy migration from root auth and alias keys into `"default"`, and focused ExUnit coverage for profile helpers and alias resolution.
-- [ ] Refactor auth validation and Rancher HTTP boundaries so commands pass explicit auth structs instead of relying on one implicit global auth.
+- [x] (2026-03-18 09:45Z) Refactored `RR.Config.Auth` and `External.RancherHttpClient` to use explicit profile-aware auth structs, updated the current `login`, `list`, and `kf` flows to target `"default"` through the new boundary, and added focused auth/login/list coverage for the new cache and client signatures.
 - [ ] Update `rr login`, `rr list`, `rr kf`, and `rr alias` to accept `-p` / `--profile` and follow the product-spec flows when `-p` is omitted.
 - [ ] Make alias lookup, cluster search, and kubeconfig cache paths profile-aware.
 - [ ] Add focused ExUnit coverage for profile storage, login flows, list rendering, alias scoping, kubeconfig path selection, and ambiguous cross-profile matches.
@@ -36,6 +36,9 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 
 - Observation: normalizing even an empty config into `%{"profiles" => %{}}` makes the on-disk shape stable and lets later code assume the top-level `"profiles"` key always exists after the first profile-store read.
   Evidence: `test/rr/config/profiles_test.exs` now asserts that `RR.Config.Profiles.state/0` rewrites `%{}` into the explicit multi-profile shape on first read.
+
+- Observation: keeping `RR.Config.get_auth/0` and `RR.Config.put_auth/1` as thin compatibility wrappers over the `"default"` profile lets the refactor land without breaking existing command tests while the CLI flags and prompts are still single-profile.
+  Evidence: `test/rr/login_test.exs` and `test/rr/list_test.exs` now pass while `RR.Login`, `RR.List`, and `RR.KubeConfig` are already calling the explicit-auth Rancher boundary with `%RR.Config.Auth{profile_name: "default", ...}`.
 
 ## Decision Log
 
@@ -65,7 +68,7 @@ The feature is observable in three ways. First, `rr login` must let the user cre
 
 ## Outcomes & Retrospective
 
-The first implementation slice is complete. The repository now has a dedicated `RR.Config.Profiles` module with one-time legacy migration, normalized profile storage, profile-scoped alias helpers, and focused tests proving that both migration and ambiguous alias resolution behave deterministically. The next slice is still the auth and Rancher boundary refactor that lets commands select one or many concrete auth structs without reading global config implicitly.
+The first two implementation slices are complete. The repository now has both the profile store and the explicit-auth Rancher boundary in place. The current commands still behave like single-profile commands by targeting `"default"`, but that default path now exercises the same profile-aware storage and auth types that the next slice will use for `-p` and multi-profile fan-out behavior.
 
 The main residual risk is scope expansion while reshaping the config layout. The implementation should stay disciplined about changing only the four user-facing commands named in the product spec plus the supporting persistence and Rancher boundary code they depend on.
 
@@ -269,3 +272,5 @@ In tests, keep using the `External.Config` and `External.RancherHttpClient` beha
 Created the initial ExecPlan from `docs/product-specs/multi-cluster-profiles.md` and the current repository state on 2026-03-18. The plan records the concrete config migration, Rancher boundary refactor, profile-scoped alias storage, and kubeconfig path changes needed so later implementation work can proceed without rediscovering these constraints.
 
 Updated on 2026-03-18 after landing the first implementation slice. The document now records the completed profile-store work, the decision to normalize empty configs into an explicit `"profiles"` map, and the fact that focused profile-store tests now exist and pass.
+
+Updated again on 2026-03-18 after landing the explicit-auth refactor. The plan now records that `RR.Config.Auth`, the Rancher HTTP boundary, and the current default-profile command paths all use explicit auth structs, while the next work item remains the profile-aware CLI flow itself.

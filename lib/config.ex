@@ -1,6 +1,9 @@
 defmodule RR.Config do
   @moduledoc false
 
+  alias RR.Config.Auth
+  alias RR.Config.Profiles
+
   def put(key, value) do
     read()
     |> Map.put(key, value)
@@ -36,11 +39,20 @@ defmodule RR.Config do
   end
 
   def get_auth do
-    {get("rancher_hostname"), get("rancher_token")}
+    case Profiles.get("default") do
+      {:ok, profile} ->
+        {profile["rancher_hostname"], profile["rancher_token"]}
+
+      {:error, _reason} ->
+        {nil, nil}
+    end
   end
 
   def put_auth({rancher_hostname, rancher_token}) do
-    put("rancher_hostname", rancher_hostname)
-    put("rancher_token", rancher_token)
+    Profiles.put("default", %Auth{
+      profile_name: "default",
+      rancher_hostname: rancher_hostname,
+      rancher_token: rancher_token
+    })
   end
 end
