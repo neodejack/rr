@@ -2,16 +2,14 @@ defmodule RR.List do
   @moduledoc false
   alias External.RancherHttpClient
   alias RR.Config.Auth
+  alias RR.Config.Profiles
   alias RR.Shell
 
   def run(args) do
-    with :ok <- parse_args(args),
-         {:ok, auth} <- Auth.ensure_valid_auth("default"),
-         {:ok, clusters} <- RancherHttpClient.get_clusters(auth) do
-      clusters
-      |> to_rows()
-      |> render_table()
-
+    with {:ok, profile_name} <- parse_args(args),
+         {:ok, auths, include_profile?} <- resolve_auths(profile_name),
+         {:ok, rows} <- fetch_rows(auths, include_profile?) do
+      render_table(rows, include_profile?)
       :ok
     end
   end
@@ -34,16 +32,17 @@ defmodule RR.List do
         {:error, "the subcommands you provided are invalid\nyou provided: #{Enum.join(rest, " ")}"}
 
       true ->
-        :ok
+        {:ok, normalize_profile_name(Keyword.get(switches, :profile))}
     end
   end
 
   defp args_definition do
     [
       strict: [
-        help: :boolean
+        help: :boolean,
+        profile: :string
       ],
-      alias: [h: :help]
+      aliases: [h: :help, p: :profile]
     ]
   end
 
@@ -53,14 +52,124 @@ defmodule RR.List do
 
     USAGE:
       rr list
+      rr list -p <profile>
     """)
   end
 
-  defp to_rows(clusters) do
+  defp resolve_auths(profile_name) when is_binary(profile_name) do
+    if Profiles.exists?(profile_name) do
+      with {:ok, auth} <- Auth.ensure_valid_auth(profile_name) do
+        {:ok, [auth], false}
+      end
+    else
+      {:error, "profile '#{profile_name}' not found"}
+    end
+  end
+
+  defp resolve_auths(nil) do
+    case Profiles.names() do
+      [] ->
+        {:error, "no profiles configured\nto login, run: rr login"}
+
+      profile_names ->
+        auths =
+          Enum.map(profile_names, fn profile_name ->
+            {profile_name, Auth.ensure_valid_auth(profile_name)}
+          end)
+
+        errors =
+          Enum.flat_map(auths, fn
+            {profile_name, {:error, _reason, reason}} -> [{profile_name, reason}]
+            {profile_name, {:error, reason}} -> [{profile_name, reason}]
+            {_profile_name, {:ok, _auth}} -> []
+          end)
+
+        if errors == [] do
+          {:ok, Enum.map(auths, fn {_profile_name, {:ok, auth}} -> auth end), true}
+        else
+          {:error, render_profile_errors("failed to validate one or more profiles", errors)}
+        end
+    end
+  end
+
+  defp fetch_rows(auths, include_profile?) do
+    results =
+      Enum.map(auths, fn auth ->
+        {auth.profile_name, RancherHttpClient.get_clusters(auth)}
+      end)
+
+    errors =
+      Enum.flat_map(results, fn
+        {profile_name, {:error, reason}} -> [{profile_name, reason}]
+        {_profile_name, {:ok, _clusters}} -> []
+      end)
+
+    if errors == [] do
+      rows =
+        results
+        |> Enum.flat_map(fn {profile_name, {:ok, clusters}} ->
+          to_rows(profile_name, clusters, include_profile?)
+        end)
+        |> Enum.sort()
+
+      {:ok, rows}
+    else
+      {:error, render_profile_errors("failed to load clusters for one or more profiles", errors)}
+    end
+  end
+
+  defp to_rows(profile_name, clusters, true) do
+    Enum.map(clusters, fn cluster -> {profile_name, cluster["name"], cluster["id"]} end)
+  end
+
+  defp to_rows(_profile_name, clusters, false) do
     Enum.map(clusters, fn cluster -> {cluster["name"], cluster["id"]} end)
   end
 
-  defp render_table(rows) do
+  defp render_table([], true) do
+    Shell.info_stdout("""
+    PROFILE  NAME  ID
+    -------  ----  --
+    no clusters found
+    """)
+  end
+
+  defp render_table([], false) do
+    Shell.info_stdout("""
+    NAME  ID
+    ----  --
+    no clusters found
+    """)
+  end
+
+  defp render_table([{_profile_name, _name, _id} | _] = rows, true) do
+    profile_width =
+      rows
+      |> Enum.map(fn {profile_name, _name, _id} -> String.length(profile_name) end)
+      |> Enum.concat([String.length("PROFILE")])
+      |> Enum.max()
+
+    name_width =
+      rows
+      |> Enum.map(fn {_profile_name, name, _id} -> String.length(name) end)
+      |> Enum.concat([String.length("NAME")])
+      |> Enum.max()
+
+    header =
+      "#{String.pad_trailing("PROFILE", profile_width)}  #{String.pad_trailing("NAME", name_width)}  ID"
+
+    separator =
+      "#{String.duplicate("-", profile_width)}  #{String.duplicate("-", name_width)}  --"
+
+    lines =
+      Enum.map(rows, fn {profile_name, name, id} ->
+        "#{String.pad_trailing(profile_name, profile_width)}  #{String.pad_trailing(name, name_width)}  #{id}"
+      end)
+
+    Shell.info_stdout(Enum.join([header, separator | lines], "\n"))
+  end
+
+  defp render_table(rows, false) do
     name_width =
       rows
       |> Enum.map(fn {name, _id} -> String.length(name) end)
@@ -71,19 +180,30 @@ defmodule RR.List do
     separator = "#{String.duplicate("-", name_width)}  --"
 
     lines =
-      case rows do
-        [] ->
-          [header, separator, "no clusters found"]
+      Enum.map(rows, fn {name, id} ->
+        "#{String.pad_trailing(name, name_width)}  #{id}"
+      end)
 
-        _ ->
-          data =
-            Enum.map(rows, fn {name, id} ->
-              "#{String.pad_trailing(name, name_width)}  #{id}"
-            end)
+    Shell.info_stdout(Enum.join([header, separator | lines], "\n"))
+  end
 
-          [header, separator | data]
-      end
+  defp render_profile_errors(prefix, errors) do
+    details =
+      Enum.map_join(errors, "\n", fn {profile_name, reason} ->
+        "  #{profile_name}: #{reason}"
+      end)
 
-    Shell.info_stdout(Enum.join(lines, "\n"))
+    "#{prefix}:\n#{details}"
+  end
+
+  defp normalize_profile_name(nil), do: nil
+
+  defp normalize_profile_name(profile_name) do
+    profile_name
+    |> String.trim()
+    |> case do
+      "" -> nil
+      trimmed -> trimmed
+    end
   end
 end

@@ -7,6 +7,7 @@ defmodule RR.LoginTest do
   alias External.RancherHttpClient.Mock, as: RancherMock
   alias RR.Config
   alias RR.Config.Auth
+  alias RR.Config.Profiles
   alias RR.Login
 
   @day_ms 86_400_000
@@ -45,7 +46,7 @@ defmodule RR.LoginTest do
       expect(RancherMock, :get_token_info, 2, &get_token_info_mock/1)
 
       {stderr, _stdout} =
-        ExUnit.CaptureIO.with_io([input: "#{@hostname}\n#{@token_valid}\n"], fn ->
+        ExUnit.CaptureIO.with_io([input: "1\n#{@hostname}\n#{@token_valid}\n"], fn ->
           ExUnit.CaptureIO.capture_io(:stderr, fn -> Login.run([]) end)
         end)
 
@@ -58,7 +59,7 @@ defmodule RR.LoginTest do
       expect(RancherMock, :get_token_info, 2, &get_token_info_mock/1)
 
       {stderr, _stdout} =
-        ExUnit.CaptureIO.with_io([input: "n\n"], fn ->
+        ExUnit.CaptureIO.with_io([input: "1\nn\n"], fn ->
           ExUnit.CaptureIO.capture_io(:stderr, fn -> Login.run([]) end)
         end)
 
@@ -71,11 +72,11 @@ defmodule RR.LoginTest do
       expect(RancherMock, :get_token_info, 2, &get_token_info_mock/1)
 
       {:ok, stdout} =
-        ExUnit.CaptureIO.with_io([input: "n\n"], fn ->
+        ExUnit.CaptureIO.with_io([input: "1\nn\n"], fn ->
           Login.run([])
         end)
 
-      assert stdout =~ "you already have a valid auth config with description"
+      assert stdout =~ "profile 'default' already has a valid auth config with description"
     end
 
     test "existing valid token with transient api error returns error" do
@@ -85,7 +86,11 @@ defmodule RR.LoginTest do
         {:error, :unknown, "rancher api error - GET #{@hostname}/v3/tokens/token-valid\nboom"}
       end)
 
-      assert {:error, msg} = Login.run([])
+      {{:result, {:error, msg}}, _stdout} =
+        ExUnit.CaptureIO.with_io([input: "1\n"], fn ->
+          send(self(), {:result, Login.run([])})
+        end)
+
       assert msg =~ "rancher api error"
     end
 
@@ -95,19 +100,73 @@ defmodule RR.LoginTest do
       end)
 
       result =
-        ExUnit.CaptureIO.capture_io([input: "#{@hostname}\n#{@token_valid}\n"], fn ->
+        ExUnit.CaptureIO.capture_io([input: "prod\n#{@hostname}\n#{@token_valid}\n"], fn ->
           send(self(), {:result, Login.run([])})
         end)
 
       assert_received {:result, {:error, msg}}
       assert msg =~ "token validation failed"
+      assert result =~ "profile name"
       assert result =~ "rancher hostname"
       assert Config.get_auth() == {nil, nil}
+      assert {:error, "profile 'prod' not found"} = Profiles.get("prod")
 
       case :ets.whereis(:rr_auth_cache) do
         :undefined -> :ok
-        tid -> assert :ets.lookup(tid, {"default", @hostname, @token_valid}) == []
+        tid -> assert :ets.lookup(tid, {"prod", @hostname, @token_valid}) == []
       end
+    end
+
+    test "login -p saves auth under the selected profile" do
+      expect(RancherMock, :get_token_info, fn %Auth{profile_name: "prod"} ->
+        get_token_info_mock(%Auth{profile_name: "prod", rancher_token: @token_valid})
+      end)
+
+      output =
+        ExUnit.CaptureIO.capture_io([input: "#{@hostname}\n#{@token_valid}\n"], fn ->
+          assert :ok = Login.run(["-p", "prod"])
+        end)
+
+      assert output =~ "token successfully validated and saved"
+
+      assert {:ok,
+              %{
+                "rancher_hostname" => @hostname,
+                "rancher_token" => @token_valid,
+                "aliases" => %{}
+              }} = Profiles.get("prod")
+    end
+
+    test "login without -p can create a new profile when one already exists" do
+      Config.put_auth({@hostname, @token_valid})
+
+      expect(RancherMock, :get_token_info, fn
+        %Auth{profile_name: "stage", rancher_token: "token-stage:abc"} ->
+          now_ms = DateTime.to_unix(DateTime.utc_now(), :millisecond)
+
+          {:ok,
+           %{
+             description: "stage",
+             expired: false,
+             enabled: true,
+             created_ts: now_ms,
+             ttl: 10 * @day_ms
+           }}
+      end)
+
+      output =
+        ExUnit.CaptureIO.capture_io([input: "2\nstage\n#{@hostname}\ntoken-stage:abc\n"], fn ->
+          assert :ok = Login.run([])
+        end)
+
+      assert output =~ "create new profile"
+
+      assert {:ok,
+              %{
+                "rancher_hostname" => @hostname,
+                "rancher_token" => "token-stage:abc",
+                "aliases" => %{}
+              }} = Profiles.get("stage")
     end
   end
 
