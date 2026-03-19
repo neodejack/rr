@@ -2,24 +2,18 @@ defmodule RR.Config.Profiles do
   @moduledoc false
 
   alias RR.Config.Auth
+  alias RR.Config.Schema
 
-  @default_profile "default"
+  @schema_version_key "schema_version"
   @profiles_key "profiles"
   @aliases_key "aliases"
-  @legacy_aliases_key "alias"
   @hostname_key "rancher_hostname"
   @token_key "rancher_token"
 
   @spec state() :: map()
   def state do
-    raw_state = External.Config.read()
-    normalized_state = normalize_state(raw_state)
-
-    if raw_state != normalized_state do
-      External.Config.write(normalized_state)
-    end
-
-    normalized_state
+    External.Config.read()
+    |> normalize_state()
   end
 
   @spec names() :: [String.t()]
@@ -121,42 +115,26 @@ defmodule RR.Config.Profiles do
     Map.get(state, @profiles_key, %{})
   end
 
-  defp normalize_state(raw_state) when is_map(raw_state) do
-    %{@profiles_key => normalize_profiles(raw_state)}
+  defp normalize_state(%{@schema_version_key => version} = raw_state) do
+    if version == Schema.current_version() do
+      %{
+        @schema_version_key => Schema.current_version(),
+        @profiles_key => normalize_profiles(Map.get(raw_state, @profiles_key))
+      }
+    else
+      Schema.empty_state()
+    end
   end
 
-  defp normalize_state(_raw_state), do: %{@profiles_key => %{}}
+  defp normalize_state(_raw_state), do: Schema.empty_state()
 
-  defp normalize_profiles(%{@profiles_key => profiles}) when is_map(profiles) do
+  defp normalize_profiles(profiles) when is_map(profiles) do
     Map.new(profiles, fn {profile_name, profile} ->
       {profile_name, normalize_profile(profile)}
     end)
   end
 
-  defp normalize_profiles(raw_state) do
-    legacy_profile = normalize_legacy_profile(raw_state)
-
-    case legacy_profile do
-      nil -> %{}
-      profile -> %{@default_profile => profile}
-    end
-  end
-
-  defp normalize_legacy_profile(raw_state) do
-    hostname = Map.get(raw_state, @hostname_key)
-    token = Map.get(raw_state, @token_key)
-    aliases = normalize_aliases(Map.get(raw_state, @legacy_aliases_key))
-
-    if is_nil(hostname) and is_nil(token) and aliases == %{} do
-      nil
-    else
-      %{
-        @hostname_key => hostname,
-        @token_key => token,
-        @aliases_key => aliases
-      }
-    end
-  end
+  defp normalize_profiles(_profiles), do: %{}
 
   defp normalize_profile(profile) when is_map(profile) do
     %{

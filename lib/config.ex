@@ -3,6 +3,7 @@ defmodule RR.Config do
 
   alias RR.Config.Auth
   alias RR.Config.Profiles
+  alias RR.Config.Schema
 
   def put(key, value) do
     read()
@@ -24,9 +25,16 @@ defmodule RR.Config do
     Map.get(read(), key)
   end
 
-  defp read, do: External.Config.read()
+  defp read do
+    External.Config.read()
+    |> ensure_current_shape()
+  end
 
-  defp write(config), do: External.Config.write(config)
+  defp write(config) do
+    config
+    |> ensure_current_shape()
+    |> External.Config.write()
+  end
 
   def home_dir do
     override_dir = System.get_env("RR_HOME")
@@ -55,4 +63,12 @@ defmodule RR.Config do
       rancher_token: rancher_token
     })
   end
+
+  defp ensure_current_shape(config) when is_map(config) do
+    config
+    |> Map.put_new("schema_version", Schema.current_version())
+    |> Map.put_new("profiles", %{})
+  end
+
+  defp ensure_current_shape(_config), do: Schema.empty_state()
 end

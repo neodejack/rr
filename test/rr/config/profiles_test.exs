@@ -6,6 +6,7 @@ defmodule RR.Config.ProfilesTest do
   alias External.Config.Mock, as: ConfigMock
   alias RR.Config.Auth
   alias RR.Config.Profiles
+  alias RR.Config.Schema
 
   setup :verify_on_exit!
 
@@ -25,48 +26,26 @@ defmodule RR.Config.ProfilesTest do
   end
 
   describe "state/0" do
-    test "normalizes empty config into the explicit profiles shape", %{store: store} do
+    test "returns the current empty state without rewriting missing config", %{store: store} do
       expect(ConfigMock, :read, fn ->
         Agent.get(store, & &1)
       end)
 
-      assert Profiles.state() == %{"profiles" => %{}}
-      assert Agent.get(store, & &1) == %{"profiles" => %{}}
-    end
+      expect(ConfigMock, :write, 0, fn _config -> :ok end)
 
-    test "migrates legacy auth and aliases into the default profile", %{store: store} do
-      Agent.update(store, fn _ ->
-        %{
-          "rancher_hostname" => "https://legacy.example",
-          "rancher_token" => "token-legacy:abc",
-          "alias" => %{"prod" => "production"}
-        }
-      end)
-
-      expected_state = %{
-        "profiles" => %{
-          "default" => %{
-            "rancher_hostname" => "https://legacy.example",
-            "rancher_token" => "token-legacy:abc",
-            "aliases" => %{"prod" => "production"}
-          }
-        }
-      }
-
-      assert Profiles.state() == expected_state
-      assert Agent.get(store, & &1) == expected_state
+      assert Profiles.state() == current_state(%{})
+      assert Agent.get(store, & &1) == %{}
     end
 
     test "keeps normalized profile config stable" do
-      config = %{
-        "profiles" => %{
+      config =
+        current_state(%{
           "prod" => %{
             "rancher_hostname" => "https://prod.example",
             "rancher_token" => "token-prod:abc",
             "aliases" => %{"api" => "prod-api"}
           }
-        }
-      }
+        })
 
       expect(ConfigMock, :read, fn -> config end)
       expect(ConfigMock, :write, 0, fn _config -> :ok end)
@@ -78,8 +57,7 @@ defmodule RR.Config.ProfilesTest do
   describe "profile helpers" do
     setup %{store: store} do
       Agent.update(store, fn _ ->
-        %{
-          "profiles" => %{
+        current_state(%{
             "prod" => %{
               "rancher_hostname" => "https://prod.example",
               "rancher_token" => "token-prod:abc",
@@ -90,8 +68,7 @@ defmodule RR.Config.ProfilesTest do
               "rancher_token" => "token-stage:abc",
               "aliases" => %{"api" => "staging-api", "web" => "staging-web"}
             }
-          }
-        }
+          })
       end)
 
       :ok
@@ -121,8 +98,8 @@ defmodule RR.Config.ProfilesTest do
                  rancher_token: "token-new:abc"
                })
 
-      assert Agent.get(store, & &1) == %{
-               "profiles" => %{
+      assert Agent.get(store, & &1) ==
+               current_state(%{
                  "prod" => %{
                    "rancher_hostname" => "https://new-prod.example",
                    "rancher_token" => "token-new:abc",
@@ -133,8 +110,7 @@ defmodule RR.Config.ProfilesTest do
                    "rancher_token" => "token-stage:abc",
                    "aliases" => %{"api" => "staging-api", "web" => "staging-web"}
                  }
-               }
-             }
+               })
     end
 
     test "writes a new profile with empty aliases", %{store: store} do
@@ -196,5 +172,12 @@ defmodule RR.Config.ProfilesTest do
     test "returns :miss when alias is absent" do
       assert :miss = Profiles.resolve_alias("missing")
     end
+  end
+
+  defp current_state(profiles) do
+    %{
+      "schema_version" => Schema.current_version(),
+      "profiles" => profiles
+    }
   end
 end
