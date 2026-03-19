@@ -92,7 +92,9 @@ defmodule RR.KubeConfigTest do
 
       output =
         ExUnit.CaptureIO.capture_io(fn ->
-          assert :ok = KubeConfig.run(["--new", "prod-api"])
+          ExUnit.CaptureIO.capture_io(:stderr, fn ->
+            assert :ok = KubeConfig.run(["--new", "prod-api"])
+          end)
         end)
 
       expected_path = Path.join([rr_home, "kubeconfigs", "prod", "production-api"])
