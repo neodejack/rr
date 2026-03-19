@@ -17,5 +17,4 @@ defmodule RR.Config.Migrator do
         {:error, "no config migration is available for schema #{version}"}
     end
   end
-
 end

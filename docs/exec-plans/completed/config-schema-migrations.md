@@ -17,7 +17,8 @@ The finished behavior is observable in four ways. First, running a stateful comm
 - [x] (2026-03-19 02:34Z) Moved the plan to `docs/exec-plans/active/`, added `RR.Config.Schema`, `RR.Config.Migrator`, `RR.Config.Migrations.V0ToCurrent`, and `RR.Config.Bootstrap`, and extended `External.Config` with `read_result/0` and `backup/0` so migration can validate malformed JSON, create backups, and write only on successful upgrade.
 - [x] (2026-03-19 02:34Z) Added focused ExUnit coverage for schema version detection, legacy-to-current migration behavior, backup orchestration, stderr notices, and malformed legacy failures in `test/rr/config/schema_test.exs`, `test/rr/config/migrator_test.exs`, and `test/rr/config/bootstrap_test.exs`.
 - [x] (2026-03-19 02:34Z) Refactored `RR.Config.Profiles` and `RR.Config` to treat only the explicit current schema as authoritative, leaving current-version normalization limited to alias/default conveniences and updating `test/rr/config/profiles_test.exs`; verified with `just test-target test/rr/config/profiles_test.exs` and `just test-target test/rr/config/auth_test.exs`.
-- [ ] Wire startup bootstrap into `RR.run/1`, add top-level dispatch coverage for migration vs. help/version bypass, run manual smoke checks plus `just check`, update `docs/ARCHITECTURE.md`, and move the plan to `docs/exec-plans/completed/`.
+- [x] (2026-03-19 02:38Z) Wired startup bootstrap into `RR.run/1` for `login`, `list`, `alias`, and `kf`, added `test/rr/rr_test.exs` to prove stateful-command migration and help/version bypass, and verified the command-level suites with `just test-target test/rr/alias_test.exs`, `just test-target test/rr/list_test.exs`, `just test-target test/rr/login_test.exs`, `just test-target test/rr/kf_test.exs`, and `just test-target test/rr/rr_test.exs`.
+- [x] (2026-03-19 02:38Z) Ran the final verification pass with `just format` and `just check`, manually confirmed migration behavior under temporary `RR_HOME` directories, updated `docs/ARCHITECTURE.md`, and prepared the plan for archival under `docs/exec-plans/completed/`.
 
 ## Surprises & Discoveries
 
@@ -38,6 +39,9 @@ The finished behavior is observable in four ways. First, running a stateful comm
 
 - Observation: existing command and auth tests stayed stable once shared config helpers returned a versioned empty state without writing it back to disk.
   Evidence: `just test-target test/rr/config/profiles_test.exs` and `just test-target test/rr/config/auth_test.exs` both passed after `RR.Config.Profiles.state/0` stopped mutating empty config and started treating versioned schema as the only persisted shape it understands.
+
+- Observation: startup migration could be verified end-to-end with `rr alias --list`, which exercised real disk I/O without needing Rancher API access.
+  Evidence: a manual run against a legacy `RR_HOME/config.json` printed `config schema 0 detected, migrating to 1`, created `config.json.bak`, and rewrote the file into the versioned `"profiles"` layout before listing aliases.
 
 ## Decision Log
 
@@ -77,11 +81,15 @@ The finished behavior is observable in four ways. First, running a stateful comm
   Rationale: after bootstrap exists, only one layer should own cross-version schema handling; leaving any legacy inference in profile helpers would recreate the split authority this change is meant to remove.
   Date/Author: 2026-03-19 / Codex
 
+- Decision: skip bootstrap whenever a top-level invocation is purely informational, including subcommand help such as `rr alias --help`.
+  Rationale: the side-effect-free requirement is about the whole invocation, not just the top-level `--help` and `--version` forms, so `RR.run/1` now checks for help flags before calling `RR.Config.Bootstrap`.
+  Date/Author: 2026-03-19 / Codex
+
 ## Outcomes & Retrospective
 
-This plan captures a refactor of the config boundary rather than a user-facing command feature. The intended outcome is a safer and more maintainable startup path for persisted state: explicit versioning, reusable migration structure, predictable backup behavior, and a clean separation between raw config evolution and business logic. Two implementation slices are now in place: the repo has an explicit schema module, a versioned v0 migrator, a startup bootstrap entrypoint, and focused tests that prove migration notices, backup behavior, malformed legacy failures, and current-schema-only profile helpers.
+This plan shipped the intended config-boundary refactor end to end. `rr` now has an explicit schema version, a dedicated startup bootstrap that migrates legacy config before stateful commands run, a byte-for-byte backup path, and profile helpers that assume only the current schema. The CLI dispatcher owns the bootstrap trigger, so help/version invocations remain side-effect free while `login`, `list`, `alias`, and `kf` all see already-migrated config.
 
-The most important discipline during the remaining work is to remove legacy-shape handling from business modules once the bootstrap exists. If the codebase keeps both the new startup migrator and the old implicit `Profiles.state/0` normalization, future contributors will not know which path is authoritative.
+Validation covered both focused and end-to-end behavior. The new schema/migrator/bootstrap/profile/dispatcher tests all passed, the broader command suites still passed, `just check` finished cleanly with 50 tests passing, and manual `RR_HOME` smoke checks showed both the migration path and the help no-op path behaving as designed. No known blockers remain for this plan; future schema changes now have a single migration entrypoint and a version field to build on.
 
 ## Context and Orientation
 
@@ -268,4 +276,4 @@ Only add the helpers the final implementation truly needs. Simpler is better, bu
 `lib/config/profiles.ex` must end the work assuming only the latest schema. Any remaining normalization there should be limited to current-version conveniences such as defaulting missing alias maps inside an otherwise-current profile, not detection of historical layouts.
 
 Revision note: created this ExecPlan on 2026-03-18 from a design discussion about replacing the implicit profile-layer migration with an explicit startup bootstrap that versions, migrates, and backs up `config.json`.
-Revision note: updated on 2026-03-19 to reflect activation of the plan, the new schema/bootstrap modules, the dedicated `External.Config` migration helpers, the current-schema-only profile refactor, and the focused config tests that now pass.
+Revision note: updated on 2026-03-19 to reflect activation of the plan, the new schema/bootstrap modules, the dedicated `External.Config` migration helpers, the current-schema-only profile refactor, the CLI bootstrap wiring, and the final verification/manual smoke evidence for the completed implementation.

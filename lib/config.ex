@@ -26,8 +26,7 @@ defmodule RR.Config do
   end
 
   defp read do
-    External.Config.read()
-    |> ensure_current_shape()
+    ensure_current_shape(External.Config.read())
   end
 
   defp write(config) do

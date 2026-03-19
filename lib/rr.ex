@@ -24,36 +24,38 @@ defmodule RR do
   def run(argv) do
     case argv do
       [cmd | args] ->
-        case cmd do
-          "kf" ->
-            RR.KubeConfig.run(args)
+        with :ok <- maybe_bootstrap(cmd, args) do
+          case cmd do
+            "kf" ->
+              RR.KubeConfig.run(args)
 
-          "login" ->
-            RR.Login.run(args)
+            "login" ->
+              RR.Login.run(args)
 
-          "alias" ->
-            RR.Alias.run(args)
+            "alias" ->
+              RR.Alias.run(args)
 
-          "list" ->
-            RR.List.run(args)
+            "list" ->
+              RR.List.run(args)
 
-          "yo" ->
-            RR.Yo.run(args)
+            "yo" ->
+              RR.Yo.run(args)
 
-          "--help" ->
-            render_help()
+            "--help" ->
+              render_help()
 
-          "-h" ->
-            render_help()
+            "-h" ->
+              render_help()
 
-          "--version" ->
-            render_version()
+            "--version" ->
+              render_version()
 
-          "-v" ->
-            render_version()
+            "-v" ->
+              render_version()
 
-          _cmd ->
-            {:error, "no such commands #{cmd}"}
+            _cmd ->
+              {:error, "no such commands #{cmd}"}
+          end
         end
 
       [] ->
@@ -81,4 +83,15 @@ defmodule RR do
     RR.Shell.info_stdout(["current version: ", Application.spec(:rr)[:vsn]])
     :ok
   end
+
+  defp maybe_bootstrap(cmd, args) do
+    if stateful_command?(cmd) and not help_requested?(args) do
+      RR.Config.Bootstrap.ensure_current()
+    else
+      :ok
+    end
+  end
+
+  defp stateful_command?(cmd), do: cmd in ["login", "list", "alias", "kf"]
+  defp help_requested?(args), do: Enum.any?(args, &(&1 in ["--help", "-h"]))
 end

@@ -58,17 +58,17 @@ defmodule RR.Config.ProfilesTest do
     setup %{store: store} do
       Agent.update(store, fn _ ->
         current_state(%{
-            "prod" => %{
-              "rancher_hostname" => "https://prod.example",
-              "rancher_token" => "token-prod:abc",
-              "aliases" => %{"api" => "production-api"}
-            },
-            "stage" => %{
-              "rancher_hostname" => "https://stage.example",
-              "rancher_token" => "token-stage:abc",
-              "aliases" => %{"api" => "staging-api", "web" => "staging-web"}
-            }
-          })
+          "prod" => %{
+            "rancher_hostname" => "https://prod.example",
+            "rancher_token" => "token-prod:abc",
+            "aliases" => %{"api" => "production-api"}
+          },
+          "stage" => %{
+            "rancher_hostname" => "https://stage.example",
+            "rancher_token" => "token-stage:abc",
+            "aliases" => %{"api" => "staging-api", "web" => "staging-web"}
+          }
+        })
       end)
 
       :ok

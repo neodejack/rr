@@ -58,8 +58,7 @@ defmodule RR.Config.MigratorTest do
         "rancher_token" => "token-legacy:abc"
       }
 
-      assert {:error,
-              "legacy config is malformed: expected rancher_hostname and rancher_token to be strings"} =
+      assert {:error, "legacy config is malformed: expected rancher_hostname and rancher_token to be strings"} =
                Migrator.migrate(config, 0)
     end
 

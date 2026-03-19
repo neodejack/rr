@@ -12,8 +12,7 @@ defmodule RR.Config.Profiles do
 
   @spec state() :: map()
   def state do
-    External.Config.read()
-    |> normalize_state()
+    normalize_state(External.Config.read())
   end
 
   @spec names() :: [String.t()]

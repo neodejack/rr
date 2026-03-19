@@ -21,7 +21,8 @@ defmodule RR.Config.Migrations.V0ToCurrent do
         migrate_legacy_root_config(raw_config, current_version)
 
       true ->
-        {:error, "legacy config is malformed: expected either a profiles map or root rancher_hostname and rancher_token keys"}
+        {:error,
+         "legacy config is malformed: expected either a profiles map or root rancher_hostname and rancher_token keys"}
     end
   end
 
