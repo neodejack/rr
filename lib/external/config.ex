@@ -5,8 +5,13 @@ defmodule External.Config do
   @callback read() :: map()
   def read, do: impl().read()
 
-  ## FIX: the callback signature is not accurate
-  @callback write(map()) :: :ok
+  @callback read_result() :: {:ok, map()} | {:error, String.t()}
+  def read_result, do: impl().read_result()
+
+  @callback backup() :: {:ok, String.t()} | {:error, String.t()}
+  def backup, do: impl().backup()
+
+  @callback write(map()) :: :ok | {:error, String.t()}
   def write(config), do: impl().write(config)
 
   defp impl, do: Module.concat([Config, Application.get_env(:rr, :external_bound, Impl)])
