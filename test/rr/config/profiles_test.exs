@@ -66,7 +66,7 @@ defmodule RR.Config.ProfilesTest do
           "stage" => %{
             "rancher_hostname" => "https://stage.example",
             "rancher_token" => "token-stage:abc",
-            "aliases" => %{"api" => "staging-api", "web" => "staging-web"}
+            "aliases" => %{"web" => "staging-web"}
           }
         })
       end)
@@ -108,7 +108,7 @@ defmodule RR.Config.ProfilesTest do
                  "stage" => %{
                    "rancher_hostname" => "https://stage.example",
                    "rancher_token" => "token-stage:abc",
-                   "aliases" => %{"api" => "staging-api", "web" => "staging-web"}
+                   "aliases" => %{"web" => "staging-web"}
                  }
                })
     end
@@ -128,26 +128,46 @@ defmodule RR.Config.ProfilesTest do
     end
 
     test "reads aliases for one profile" do
-      assert Profiles.aliases("stage") == %{"api" => "staging-api", "web" => "staging-web"}
+      assert Profiles.aliases("stage") == %{"web" => "staging-web"}
     end
 
     test "returns aliases grouped by profile" do
       assert Profiles.aliases_by_profile() == %{
                "prod" => %{"api" => "production-api"},
-               "stage" => %{"api" => "staging-api", "web" => "staging-web"}
+               "stage" => %{"web" => "staging-web"}
              }
     end
 
     test "stores aliases inside the selected profile", %{store: store} do
-      assert :ok = Profiles.put_alias("prod", "web", "prod-web")
+      assert :ok = Profiles.put_alias("prod", "metrics", "prod-metrics")
 
       assert Agent.get(store, & &1)["profiles"]["prod"]["aliases"] == %{
                "api" => "production-api",
-               "web" => "prod-web"
+               "metrics" => "prod-metrics"
              }
 
       assert Agent.get(store, & &1)["profiles"]["stage"]["aliases"] == %{
-               "api" => "staging-api",
+               "web" => "staging-web"
+             }
+    end
+
+    test "allows updating aliases inside the same profile", %{store: store} do
+      assert :ok = Profiles.put_alias("prod", "api", "production-api-v2")
+
+      assert Agent.get(store, & &1)["profiles"]["prod"]["aliases"] == %{
+               "api" => "production-api-v2"
+             }
+    end
+
+    test "rejects aliases claimed by another profile", %{store: store} do
+      assert {:error, :alias_owned_by_other_profile, %{profile_name: "stage", cluster_name: "staging-web"}} =
+               Profiles.put_alias("prod", "web", "prod-web")
+
+      assert Agent.get(store, & &1)["profiles"]["prod"]["aliases"] == %{
+               "api" => "production-api"
+             }
+
+      assert Agent.get(store, & &1)["profiles"]["stage"]["aliases"] == %{
                "web" => "staging-web"
              }
     end
@@ -161,8 +181,23 @@ defmodule RR.Config.ProfilesTest do
                Profiles.resolve_alias("web")
     end
 
-    test "reports ambiguous aliases across profiles" do
-      assert {:error, :ambiguous,
+    test "reports duplicate aliases in malformed config", %{store: store} do
+      Agent.update(store, fn _ ->
+        current_state(%{
+          "prod" => %{
+            "rancher_hostname" => "https://prod.example",
+            "rancher_token" => "token-prod:abc",
+            "aliases" => %{"api" => "production-api"}
+          },
+          "stage" => %{
+            "rancher_hostname" => "https://stage.example",
+            "rancher_token" => "token-stage:abc",
+            "aliases" => %{"api" => "staging-api"}
+          }
+        })
+      end)
+
+      assert {:error, :duplicate_aliases,
               [
                 %{profile_name: "prod", cluster_name: "production-api"},
                 %{profile_name: "stage", cluster_name: "staging-api"}

@@ -76,38 +76,55 @@ defmodule RR.Config.Profiles do
   def put_alias(profile_name, alias_name, cluster_name)
       when is_binary(profile_name) and is_binary(alias_name) and is_binary(cluster_name) do
     with {:ok, profile} <- get(profile_name) do
-      updated_profile =
-        put_in(profile, [@aliases_key, alias_name], cluster_name)
+      case alias_matches(alias_name) do
+        [] ->
+          write_alias(state(), profile_name, profile, alias_name, cluster_name)
 
-      state()
-      |> put_in([@profiles_key, profile_name], updated_profile)
-      |> External.Config.write()
+        [%{profile_name: ^profile_name}] ->
+          write_alias(state(), profile_name, profile, alias_name, cluster_name)
+
+        [%{profile_name: owner_profile_name, cluster_name: owner_cluster_name}] ->
+          {:error, :alias_owned_by_other_profile, %{profile_name: owner_profile_name, cluster_name: owner_cluster_name}}
+
+        matches ->
+          {:error, :duplicate_aliases, matches}
+      end
     end
   end
 
   @spec resolve_alias(String.t()) ::
           :miss
           | {:ok, %{profile_name: String.t(), cluster_name: String.t()}}
-          | {:error, :ambiguous, [%{profile_name: String.t(), cluster_name: String.t()}]}
+          | {:error, :duplicate_aliases, [%{profile_name: String.t(), cluster_name: String.t()}]}
   def resolve_alias(alias_name) when is_binary(alias_name) do
-    matches =
-      aliases_by_profile()
-      |> Enum.sort_by(fn {profile_name, _aliases} -> profile_name end)
-      |> Enum.flat_map(fn {profile_name, profile_aliases} ->
-        case Map.fetch(profile_aliases, alias_name) do
-          {:ok, cluster_name} ->
-            [%{profile_name: profile_name, cluster_name: cluster_name}]
-
-          :error ->
-            []
-        end
-      end)
-
-    case matches do
+    case alias_matches(alias_name) do
       [] -> :miss
       [match] -> {:ok, match}
-      _ -> {:error, :ambiguous, matches}
+      matches -> {:error, :duplicate_aliases, matches}
     end
+  end
+
+  defp alias_matches(alias_name) do
+    aliases_by_profile()
+    |> Enum.sort_by(fn {profile_name, _aliases} -> profile_name end)
+    |> Enum.flat_map(fn {profile_name, profile_aliases} ->
+      case Map.fetch(profile_aliases, alias_name) do
+        {:ok, cluster_name} ->
+          [%{profile_name: profile_name, cluster_name: cluster_name}]
+
+        :error ->
+          []
+      end
+    end)
+  end
+
+  defp write_alias(state, profile_name, profile, alias_name, cluster_name) do
+    updated_profile =
+      put_in(profile, [@aliases_key, alias_name], cluster_name)
+
+    state
+    |> put_in([@profiles_key, profile_name], updated_profile)
+    |> External.Config.write()
   end
 
   defp profiles(state) do
