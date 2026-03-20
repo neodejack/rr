@@ -95,12 +95,11 @@ defmodule RR.Config.Profiles do
   @spec resolve_alias(String.t()) ::
           :miss
           | {:ok, %{profile_name: String.t(), cluster_name: String.t()}}
-          | {:error, :duplicate_aliases, [%{profile_name: String.t(), cluster_name: String.t()}]}
   def resolve_alias(alias_name) when is_binary(alias_name) do
     case alias_matches(alias_name) do
       [] -> :miss
       [match] -> {:ok, match}
-      matches -> {:error, :duplicate_aliases, matches}
+      matches -> raise ArgumentError, duplicate_alias_error(alias_name, matches)
     end
   end
 
@@ -125,6 +124,21 @@ defmodule RR.Config.Profiles do
     state
     |> put_in([@profiles_key, profile_name], updated_profile)
     |> External.Config.write()
+  end
+
+  defp duplicate_alias_error(alias_name, matches) do
+    details =
+      matches
+      |> Enum.sort_by(fn %{profile_name: profile_name, cluster_name: cluster_name} ->
+        {profile_name, cluster_name}
+      end)
+      |> Enum.map_join("\n", fn %{profile_name: profile_name, cluster_name: cluster_name} ->
+        "  #{profile_name} -> #{cluster_name}"
+      end)
+
+    "alias '#{alias_name}' exists more than once in local config:\n" <>
+      details <>
+      "\nplease remove the duplicate alias entries before retrying"
   end
 
   defp profiles(state) do

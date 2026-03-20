@@ -213,9 +213,6 @@ defmodule RR.KubeConfig do
 
             resolve_target_cluster(profile_name, cluster_name)
 
-          {:error, :duplicate_aliases, matches} ->
-            {:error, render_duplicate_alias_error(cluster_name_substring, matches)}
-
           :miss ->
             with {:ok, auths} <- load_all_auths(),
                  {:ok, clusters} <- fetch_clusters_for_auths(auths),
@@ -303,21 +300,6 @@ defmodule RR.KubeConfig do
       details <>
       "please use -p auth_name to specify the cluster\n" <>
       "or narrow the cluster name / use rr alias"
-  end
-
-  defp render_duplicate_alias_error(alias_name, matches) do
-    details =
-      matches
-      |> Enum.sort_by(fn %{profile_name: profile_name, cluster_name: cluster_name} ->
-        {profile_name, cluster_name}
-      end)
-      |> Enum.map_join("\n", fn %{profile_name: profile_name, cluster_name: cluster_name} ->
-        "  #{profile_name} -> #{cluster_name}"
-      end)
-
-    "alias '#{alias_name}' exists more than once in local config:\n" <>
-      details <>
-      "\nplease remove the duplicate alias entries before retrying"
   end
 
   defp render_profile_errors(prefix, errors) do

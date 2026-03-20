@@ -181,7 +181,7 @@ defmodule RR.Config.ProfilesTest do
                Profiles.resolve_alias("web")
     end
 
-    test "reports duplicate aliases in malformed config", %{store: store} do
+    test "raises when malformed config contains duplicate aliases", %{store: store} do
       Agent.update(store, fn _ ->
         current_state(%{
           "prod" => %{
@@ -197,11 +197,9 @@ defmodule RR.Config.ProfilesTest do
         })
       end)
 
-      assert {:error, :duplicate_aliases,
-              [
-                %{profile_name: "prod", cluster_name: "production-api"},
-                %{profile_name: "stage", cluster_name: "staging-api"}
-              ]} = Profiles.resolve_alias("api")
+      assert_raise ArgumentError, ~r/alias 'api' exists more than once in local config/, fn ->
+        Profiles.resolve_alias("api")
+      end
     end
 
     test "returns :miss when alias is absent" do

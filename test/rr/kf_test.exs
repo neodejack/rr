@@ -140,7 +140,7 @@ defmodule RR.KubeConfigTest do
       assert message =~ "please use -p auth_name to specify the cluster"
     end
 
-    test "fails clearly when local config contains duplicate aliases", %{store: store} do
+    test "raises when local config contains duplicate aliases", %{store: store} do
       Profiles.put(
         "prod",
         %Auth{
@@ -181,10 +181,9 @@ defmodule RR.KubeConfigTest do
       expect(RancherMock, :get_clusters, 0, fn _auth -> {:ok, []} end)
       expect(RancherMock, :get_kubeconfig, 0, fn _auth, kubeconfig -> {:ok, kubeconfig} end)
 
-      assert {:error, message} = KubeConfig.run(["shared"])
-      assert message =~ "alias 'shared' exists more than once in local config"
-      assert message =~ "prod -> production-api"
-      assert message =~ "stage -> staging-api"
+      assert_raise ArgumentError, ~r/alias 'shared' exists more than once in local config/, fn ->
+        KubeConfig.run(["shared"])
+      end
     end
   end
 

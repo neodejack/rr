@@ -186,9 +186,6 @@ defmodule RR.Alias do
       {:ok, %{profile_name: owner_profile_name, cluster_name: owner_cluster_name}} ->
         {:error,
          "alias '#{alias_name}' is already claimed by profile '#{owner_profile_name}' for cluster '#{owner_cluster_name}'"}
-
-      {:error, :duplicate_aliases, matches} ->
-        {:error, render_duplicate_alias_error(alias_name, matches)}
     end
   end
 
@@ -234,25 +231,8 @@ defmodule RR.Alias do
         {:error,
          "alias '#{alias_name}' is already claimed by profile '#{owner_profile_name}' for cluster '#{owner_cluster_name}'"}
 
-      {:error, :duplicate_aliases, matches} ->
-        {:error, render_duplicate_alias_error(alias_name, matches)}
-
       {:error, _reason} = error ->
         error
     end
-  end
-
-  defp render_duplicate_alias_error(alias_name, matches) do
-    details =
-      matches
-      |> Enum.sort_by(fn %{profile_name: profile_name, cluster_name: cluster_name} ->
-        {profile_name, cluster_name}
-      end)
-      |> Enum.map_join("\n", fn %{profile_name: profile_name, cluster_name: cluster_name} ->
-        "  #{profile_name} -> #{cluster_name}"
-      end)
-
-    "alias '#{alias_name}' exists more than once in local config:\n#{details}\n" <>
-      "please remove the duplicate alias entries before retrying"
   end
 end
