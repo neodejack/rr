@@ -40,7 +40,7 @@ defmodule RR.KubeConfigTest do
       File.rm_rf(rr_home)
     end)
 
-    {:ok, rr_home: rr_home}
+    {:ok, rr_home: rr_home, store: store}
   end
 
   describe "run/1" do
@@ -138,6 +138,53 @@ defmodule RR.KubeConfigTest do
       assert message =~ "prod -> api"
       assert message =~ "stage -> api"
       assert message =~ "please use -p auth_name to specify the cluster"
+    end
+
+    test "fails clearly when local config contains duplicate aliases", %{store: store} do
+      Profiles.put(
+        "prod",
+        %Auth{
+          profile_name: "prod",
+          rancher_hostname: "https://prod.example",
+          rancher_token: "token-prod:abc"
+        }
+      )
+
+      Profiles.put(
+        "stage",
+        %Auth{
+          profile_name: "stage",
+          rancher_hostname: "https://stage.example",
+          rancher_token: "token-stage:abc"
+        }
+      )
+
+      Agent.update(store, fn _ ->
+        %{
+          "schema_version" => 1,
+          "profiles" => %{
+            "prod" => %{
+              "rancher_hostname" => "https://prod.example",
+              "rancher_token" => "token-prod:abc",
+              "aliases" => %{"shared" => "production-api"}
+            },
+            "stage" => %{
+              "rancher_hostname" => "https://stage.example",
+              "rancher_token" => "token-stage:abc",
+              "aliases" => %{"shared" => "staging-api"}
+            }
+          }
+        }
+      end)
+
+      expect(RancherMock, :get_token_info, 0, fn _auth -> valid_token_info("unused") end)
+      expect(RancherMock, :get_clusters, 0, fn _auth -> {:ok, []} end)
+      expect(RancherMock, :get_kubeconfig, 0, fn _auth, kubeconfig -> {:ok, kubeconfig} end)
+
+      assert {:error, message} = KubeConfig.run(["shared"])
+      assert message =~ "alias 'shared' exists more than once in local config"
+      assert message =~ "prod -> production-api"
+      assert message =~ "stage -> staging-api"
     end
   end
 

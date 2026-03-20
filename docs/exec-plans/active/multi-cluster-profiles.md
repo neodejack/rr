@@ -16,7 +16,7 @@ After this change, a user can run `rr login` to create or update named profiles,
 - [x] (2026-03-19 10:16Z) Rewrote this ExecPlan so it starts from the actual codebase, where profile-aware login, list, and kubeconfig flows already exist, instead of assuming profile support still needs to be built from scratch.
 - [x] (2026-03-20 03:20Z) Moved the ExecPlan from `docs/exec-plans/todo/` to `docs/exec-plans/active/` and implemented Milestone 1 in `RR.Config.Profiles`, including cross-profile alias write rejection, same-profile overwrite support, and defensive duplicate-alias detection for malformed config.
 - [x] (2026-03-20 03:45Z) Replaced positional alias creation with an interactive `rr alias` flow that picks a profile, prompts for alias text, fetches clusters only after ownership checks, confirms same-profile overwrites, and keeps `--list` as a local-config operation.
-- [ ] Tighten `rr kf`, help text, and focused tests so profile resolution, ambiguity guidance, and no-hidden-default behavior all match the revised spec.
+- [x] (2026-03-20 04:05Z) Tightened `rr kf` around the new alias contract by surfacing malformed duplicate-alias config as a clear error, and extended focused coverage so alias hits stay profile-scoped and duplicate local alias state fails before Rancher calls.
 - [ ] Run focused tests, `just check`, and a temporary-`RR_HOME` smoke pass that exercises the interactive alias flow.
 
 ## Surprises & Discoveries
@@ -71,6 +71,8 @@ At plan creation time, the repository already satisfies much of the revised prod
 Milestone 1 is complete. `RR.Config.Profiles.put_alias/3` now enforces global uniqueness across profiles while still allowing same-profile updates, and `resolve_alias/1` now returns a structured duplicate-state error only for malformed config that violates the new invariant. The next outcome is to consume that contract from the interactive `rr alias` flow and from `rr kf`.
 
 Milestone 2 is complete. `rr alias` no longer accepts positional alias or cluster arguments. The command now validates or prompts for a profile, prompts for alias text, rejects cross-profile alias collisions before any Rancher call, loads clusters only for the selected profile, and asks for confirmation before overwriting an alias in that same profile.
+
+Milestone 3 is complete. `rr kf` now understands the defensive duplicate-alias error returned by `RR.Config.Profiles.resolve_alias/1`, so malformed local config produces a clear recovery message instead of a case-clause crash. The focused regression suite now covers that edge case in addition to the existing profile-scoped alias resolution and cross-profile cluster ambiguity coverage.
 
 No implementation work has been done under this revised ExecPlan yet. Update this section after each milestone with the behavior achieved, the verification completed, and any spec tradeoffs discovered during coding.
 
@@ -273,3 +275,5 @@ Rewritten on 2026-03-19 because `docs/product-specs/multi-cluster-profiles.md` c
 Updated on 2026-03-20 after Milestone 1 implementation. The plan now records the chosen handling for malformed duplicate aliases: write-time enforcement keeps aliases globally unique, while read-time resolution returns a dedicated duplicate-state error so commands can fail clearly if a manually edited config violates the invariant.
 
 Updated on 2026-03-20 after Milestone 2 implementation. The plan now records the interactive alias flow that replaced positional alias arguments, the same-profile overwrite confirmation step, and the focused alias-command coverage that now exercises profile prompts, conflict rejection, and empty-cluster failure handling.
+
+Updated on 2026-03-20 after Milestone 3 implementation. The plan now records the final `kf` alignment work: alias-driven profile narrowing remains unchanged, but malformed duplicate aliases now surface a clear recovery error instead of falling through the old ambiguity branch.
