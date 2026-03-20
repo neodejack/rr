@@ -99,7 +99,8 @@ defmodule RRTest do
     test "subcommand help skips bootstrap and config I/O", %{store: store} do
       stdout = ExUnit.CaptureIO.capture_io(fn -> assert :ok = RR.run(["alias", "--help"]) end)
 
-      assert stdout =~ "`rr alias` set alias."
+      assert stdout =~ "create or inspect profile-scoped cluster aliases"
+      assert stdout =~ "rr alias -p <profile>"
       assert Agent.get(store, & &1.calls) == %{read: 0, read_result: 0, backup: 0, write: 0}
       assert Agent.get(store, & &1.backup) == nil
     end

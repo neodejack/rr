@@ -17,7 +17,8 @@ After this change, a user can run `rr login` to create or update named profiles,
 - [x] (2026-03-20 03:20Z) Moved the ExecPlan from `docs/exec-plans/todo/` to `docs/exec-plans/active/` and implemented Milestone 1 in `RR.Config.Profiles`, including cross-profile alias write rejection, same-profile overwrite support, and defensive duplicate-alias detection for malformed config.
 - [x] (2026-03-20 03:45Z) Replaced positional alias creation with an interactive `rr alias` flow that picks a profile, prompts for alias text, fetches clusters only after ownership checks, confirms same-profile overwrites, and keeps `--list` as a local-config operation.
 - [x] (2026-03-20 04:05Z) Tightened `rr kf` around the new alias contract by surfacing malformed duplicate-alias config as a clear error, and extended focused coverage so alias hits stay profile-scoped and duplicate local alias state fails before Rancher calls.
-- [ ] Run focused tests, `just check`, and a temporary-`RR_HOME` smoke pass that exercises the interactive alias flow.
+- [x] (2026-03-20 04:35Z) Ran the focused test targets from this plan (`profiles`, `alias`, `kf`, `login`, `list`), fixed the last stale help assertion in `test/rr/rr_test.exs`, and passed `just check`.
+- [x] (2026-03-20 04:39Z) Completed a mock-backed smoke run in a temporary `RR_HOME` under `MIX_ENV=test` that exercised `RR.List.run/1`, the interactive `RR.Alias.run/1` flow, `RR.Alias.run(["--list"])`, and `RR.KubeConfig.run/1` without touching real Rancher state.
 
 ## Surprises & Discoveries
 
@@ -41,6 +42,9 @@ After this change, a user can run `rr login` to create or update named profiles,
 
 - Observation: `Owl.IO.select/2` autoselects a single cluster result, which keeps the new alias flow terse when one profile has only one cluster.
   Evidence: the rewritten `test/rr/alias_test.exs` can drive the no-`-p` happy path with only profile selection and alias-text input when the chosen profile exposes one cluster.
+
+- Observation: `config/test.exs` forces `RR_HOME` to `~/.rr/test`, so a smoke run that genuinely isolates state must override `RR_HOME` again after the test environment boots.
+  Evidence: the first mock-backed smoke attempt still wrote kubeconfig output under `~/.rr/test`, and rerunning after `System.put_env("RR_HOME", tmp_home)` produced a temp-directory kubeconfig path as intended.
 
 ## Decision Log
 
@@ -74,7 +78,9 @@ Milestone 2 is complete. `rr alias` no longer accepts positional alias or cluste
 
 Milestone 3 is complete. `rr kf` now understands the defensive duplicate-alias error returned by `RR.Config.Profiles.resolve_alias/1`, so malformed local config produces a clear recovery message instead of a case-clause crash. The focused regression suite now covers that edge case in addition to the existing profile-scoped alias resolution and cross-profile cluster ambiguity coverage.
 
-No implementation work has been done under this revised ExecPlan yet. Update this section after each milestone with the behavior achieved, the verification completed, and any spec tradeoffs discovered during coding.
+The plan is complete. The repository now matches the revised product spec for the remaining deltas that were still open at the start of this work: aliases are globally unique across profiles, `rr alias` is fully interactive, `rr kf` narrows through globally unique aliases and reports malformed duplicate local alias state clearly, and help plus regression coverage match the new command contract.
+
+Verification is complete for repository-local behavior. The focused milestone tests passed, `just check` passed with the full ExUnit suite, and a mock-backed smoke run in a temporary `RR_HOME` showed the end-to-end flow for `list`, interactive `alias`, `alias --list`, and alias-driven `kf` without touching real user state. The only remaining validation gap is live Rancher credentials, which were not available in this session; that gap affects external integration confidence, not the checked-in command and config behavior exercised by the automated suite and smoke run.
 
 ## Context and Orientation
 
@@ -159,7 +165,7 @@ Before finishing, run formatting and the standard verification pass:
     just format
     just check
 
-Then do a manual smoke run in a temporary home directory so no real Rancher state is touched:
+Then do a smoke run in a temporary home directory so no real Rancher state is touched. A live-Rancher run is ideal when credentials are available, but a mock-backed `MIX_ENV=test` run is acceptable when the goal is to exercise the checked-in command flow without external dependencies:
 
     export RR_HOME="$(mktemp -d)"
     mix run --no-halt -- login -p prod
@@ -168,6 +174,14 @@ Then do a manual smoke run in a temporary home directory so no real Rancher stat
     mix run --no-halt -- alias -p prod
     mix run --no-halt -- alias --list
     mix run --no-halt -- kf prod-api
+
+or, when live credentials are unavailable, run a one-off `MIX_ENV=test mix run -e '...'` script that:
+
+    1. overrides `RR_HOME` to a fresh temp directory after `config/test.exs` loads,
+    2. stubs `External.Config.Mock` and `External.RancherHttpClient.Mock`,
+    3. seeds `prod` and `stage` profiles,
+    4. exercises `RR.List.run([])`, `RR.Alias.run(["-p", "prod"])`, `RR.Alias.run(["--list"])`, and `RR.KubeConfig.run(["--new", "prod-api"])`,
+    5. confirms that the kubeconfig path is written under `<temp>/kubeconfigs/prod/production-api`.
 
 The expected manual behavior is:
 
@@ -191,6 +205,8 @@ Alias text must be globally unique across all profiles. Creating alias `prod` un
 `rr kf -p <profile> token` must keep searching only inside that profile. `rr kf token` without `-p` must continue to search across profiles, but when `token` is an alias, alias resolution must narrow to the alias’s owning profile before cluster lookup. Ambiguous full-cluster-name matches across profiles must still name both the cluster and the profile and must include `please use -p auth_name to specify the cluster`.
 
 Focused tests for profiles, alias, kubeconfig, login, and list must pass, followed by a clean `just check`.
+
+A temporary-`RR_HOME` smoke run must demonstrate the interactive alias flow and alias-driven kubeconfig resolution without mutating real user state. If live Rancher access is unavailable, a mock-backed smoke run is sufficient as long as it exercises the checked-in command modules end to end and records the remaining live-integration gap explicitly.
 
 ## Idempotence and Recovery
 
@@ -277,3 +293,5 @@ Updated on 2026-03-20 after Milestone 1 implementation. The plan now records the
 Updated on 2026-03-20 after Milestone 2 implementation. The plan now records the interactive alias flow that replaced positional alias arguments, the same-profile overwrite confirmation step, and the focused alias-command coverage that now exercises profile prompts, conflict rejection, and empty-cluster failure handling.
 
 Updated on 2026-03-20 after Milestone 3 implementation. The plan now records the final `kf` alignment work: alias-driven profile narrowing remains unchanged, but malformed duplicate aliases now surface a clear recovery error instead of falling through the old ambiguity branch.
+
+Updated on 2026-03-20 after verification and archive preparation. The plan now records the full test pass, the mock-backed temporary-`RR_HOME` smoke run used in place of live Rancher credentials, and the residual external-integration validation gap.
