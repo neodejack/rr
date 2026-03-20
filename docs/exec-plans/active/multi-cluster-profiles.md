@@ -15,7 +15,7 @@ After this change, a user can run `rr login` to create or update named profiles,
 - [x] (2026-03-19 10:16Z) Read `docs/PLANS.md`, `docs/ARCHITECTURE.md`, the revised `docs/product-specs/multi-cluster-profiles.md`, the existing ExecPlan, and the current `login` / `list` / `alias` / `kf` / config / test code to map the spec onto the current repository state.
 - [x] (2026-03-19 10:16Z) Rewrote this ExecPlan so it starts from the actual codebase, where profile-aware login, list, and kubeconfig flows already exist, instead of assuming profile support still needs to be built from scratch.
 - [x] (2026-03-20 03:20Z) Moved the ExecPlan from `docs/exec-plans/todo/` to `docs/exec-plans/active/` and implemented Milestone 1 in `RR.Config.Profiles`, including cross-profile alias write rejection, same-profile overwrite support, and defensive duplicate-alias detection for malformed config.
-- [ ] Replace positional alias creation with the interactive profile -> alias text -> cluster selection flow required by the revised spec.
+- [x] (2026-03-20 03:45Z) Replaced positional alias creation with an interactive `rr alias` flow that picks a profile, prompts for alias text, fetches clusters only after ownership checks, confirms same-profile overwrites, and keeps `--list` as a local-config operation.
 - [ ] Tighten `rr kf`, help text, and focused tests so profile resolution, ambiguity guidance, and no-hidden-default behavior all match the revised spec.
 - [ ] Run focused tests, `just check`, and a temporary-`RR_HOME` smoke pass that exercises the interactive alias flow.
 
@@ -38,6 +38,9 @@ After this change, a user can run `rr login` to create or update named profiles,
 
 - Observation: the existing plan text conflicted on how malformed duplicate aliases should be handled on read.
   Evidence: the Progress section asked for a defensive read path, while the earlier Decision Log and `Plan of Work` text described crashing through unmatched pattern handling.
+
+- Observation: `Owl.IO.select/2` autoselects a single cluster result, which keeps the new alias flow terse when one profile has only one cluster.
+  Evidence: the rewritten `test/rr/alias_test.exs` can drive the no-`-p` happy path with only profile selection and alias-text input when the chosen profile exposes one cluster.
 
 ## Decision Log
 
@@ -66,6 +69,8 @@ After this change, a user can run `rr login` to create or update named profiles,
 At plan creation time, the repository already satisfies much of the revised product spec: named profiles exist, `rr login` already manages them, `rr list` already supports all-profiles rendering, and `rr kf` already searches across profiles and stores kubeconfigs under profile-specific paths. The remaining outcome is to align alias storage and alias UX with the revised spec, then confirm the existing profile behavior still holds under the new tests.
 
 Milestone 1 is complete. `RR.Config.Profiles.put_alias/3` now enforces global uniqueness across profiles while still allowing same-profile updates, and `resolve_alias/1` now returns a structured duplicate-state error only for malformed config that violates the new invariant. The next outcome is to consume that contract from the interactive `rr alias` flow and from `rr kf`.
+
+Milestone 2 is complete. `rr alias` no longer accepts positional alias or cluster arguments. The command now validates or prompts for a profile, prompts for alias text, rejects cross-profile alias collisions before any Rancher call, loads clusters only for the selected profile, and asks for confirmation before overwriting an alias in that same profile.
 
 No implementation work has been done under this revised ExecPlan yet. Update this section after each milestone with the behavior achieved, the verification completed, and any spec tradeoffs discovered during coding.
 
@@ -102,7 +107,7 @@ At the end of this milestone, the config layer can answer one question determini
 
 ### Milestone 2: Replace positional alias arguments with the interactive flow
 
-At the end of this milestone, `rr alias` no longer takes positional `<cluster_alias> <cluster_full_name>` arguments for create or update. Instead, the command chooses or validates a profile, prompts for alias text, fetches the clusters for that profile, and requires the user to choose one interactively. It must reject a cross-profile alias collision before writing config, ask for overwrite confirmation when the alias already belongs to the selected profile, and fail clearly when the selected profile has no clusters. This milestone is complete when `test/rr/alias_test.exs` covers the interactive happy path plus all revised-spec failure cases.
+At the end of this milestone, `rr alias` no longer takes positional `<cluster_alias> <cluster_full_name>` arguments for create or update. Instead, the command chooses or validates a profile, prompts for alias text, fetches the clusters for that profile, and requires the user to choose one interactively. It must reject a cross-profile alias collision before writing config, ask for overwrite confirmation when the alias already belongs to the selected profile, and fail clearly when the selected profile has no clusters. This milestone is complete when `test/rr/alias_test.exs` covers the interactive happy path plus the revised-spec failure cases for missing profiles, cross-profile alias conflicts, same-profile overwrite, overwrite decline, and empty cluster lists.
 
 ### Milestone 3: Tighten command integration, help text, and regression coverage
 
@@ -127,7 +132,7 @@ Then adjust `lib/cmds/kf.ex` so it matches the new alias contract. The `-p` path
 
 Review `lib/cmds/login.ex`, `lib/cmds/list.ex`, and `lib/rr.ex` last. Most of the revised-spec behavior is already present there, so the expected work is small: keep the command help text aligned with the new alias syntax, keep terminology consistently on “profile”, and ensure no help output or prompt text suggests a hidden current profile. Internal compatibility wrappers around `"default"` may remain only where they support legacy migration or old tests; do not route new user-facing behavior through them.
 
-Finally, update tests before declaring the feature complete. `test/rr/config/profiles_test.exs` should prove alias uniqueness and duplicate-detection behavior. `test/rr/alias_test.exs` should be rewritten around the interactive flow, including profile prompt, alias conflict, same-profile overwrite confirmation, no-clusters failure, and `--list`. `test/rr/kf_test.exs` should keep the existing profile-scoped kubeconfig coverage and add assertions that alias resolution narrows the profile. Only touch `test/rr/login_test.exs`, `test/rr/list_test.exs`, or bootstrap/migration tests if implementation changes behavior there.
+Finally, update tests before declaring the feature complete. `test/rr/config/profiles_test.exs` should prove alias uniqueness and duplicate-detection behavior. `test/rr/alias_test.exs` should be rewritten around the interactive flow, including profile prompt, alias conflict, same-profile overwrite confirmation, overwrite decline, no-clusters failure, and `--list`. `test/rr/kf_test.exs` should keep the existing profile-scoped kubeconfig coverage and add assertions that alias resolution narrows the profile. Only touch `test/rr/login_test.exs`, `test/rr/list_test.exs`, or bootstrap/migration tests if implementation changes behavior there.
 
 ## Concrete Steps
 
@@ -266,3 +271,5 @@ In tests, continue mocking `External.Config` and `External.RancherHttpClient` th
 Rewritten on 2026-03-19 because `docs/product-specs/multi-cluster-profiles.md` changed materially after the earlier plan was written. The previous plan described building profile support from scratch and recorded completed implementation work that is already present in the repository. This revision replaces that stale framing with a plan focused on the real remaining deltas: interactive alias creation, global alias uniqueness, cleanup of the last user-facing default-profile assumptions, and the removal of handled duplicate-alias resolution branches from the normal alias API.
 
 Updated on 2026-03-20 after Milestone 1 implementation. The plan now records the chosen handling for malformed duplicate aliases: write-time enforcement keeps aliases globally unique, while read-time resolution returns a dedicated duplicate-state error so commands can fail clearly if a manually edited config violates the invariant.
+
+Updated on 2026-03-20 after Milestone 2 implementation. The plan now records the interactive alias flow that replaced positional alias arguments, the same-profile overwrite confirmation step, and the focused alias-command coverage that now exercises profile prompts, conflict rejection, and empty-cluster failure handling.

@@ -1,5 +1,7 @@
 defmodule RR.Alias do
   @moduledoc false
+  alias External.RancherHttpClient
+  alias RR.Config.Auth
   alias RR.Config.Profiles
   alias RR.Shell
 
@@ -29,11 +31,22 @@ defmodule RR.Alias do
     render_alias_list()
   end
 
-  defp execute({:set, profile_name, alias_name, full_name}) do
+  defp execute({:set, profile_name}) do
     with {:ok, profile_name} <- select_profile_name(profile_name),
-         :ok <- Profiles.put_alias(profile_name, alias_name, full_name) do
-      Shell.info_stdout("profile '#{profile_name}': alias #{alias_name} -> #{full_name}")
-      :ok
+         {:ok, alias_name} <- prompt_alias_name(),
+         {:ok, existing_alias} <- ensure_alias_available(profile_name, alias_name),
+         {:ok, auth} <- Auth.ensure_valid_auth(profile_name),
+         {:ok, cluster_name} <- select_cluster_name(auth) do
+      case maybe_confirm_overwrite(alias_name, existing_alias, cluster_name) do
+        :ok ->
+          with :ok <- persist_alias(profile_name, alias_name, cluster_name) do
+            Shell.info_stdout("profile '#{profile_name}': alias #{alias_name} -> #{cluster_name}")
+            :ok
+          end
+
+        :abort ->
+          :ok
+      end
     end
   end
 
@@ -53,13 +66,12 @@ defmodule RR.Alias do
       Keyword.has_key?(switches, :list) ->
         {:ok, {:list}}
 
-      match?([_, _], rest) ->
-        [alias_name, full_name] = rest
-        {:ok, {:set, normalize_profile_name(Keyword.get(switches, :profile)), alias_name, full_name}}
+      rest == [] ->
+        {:ok, {:set, normalize_profile_name(Keyword.get(switches, :profile))}}
 
       true ->
         render_help()
-        {:error, "you didn't provide valid <cluster_alias> and <cluster_full_name>"}
+        {:error, "rr alias command doesn't take positional arguments"}
     end
   end
 
@@ -105,12 +117,11 @@ defmodule RR.Alias do
   defp render_help do
     Shell.info_stdout("""
 
-    `rr alias` set alias.
-    alias will be substituted when used in `rr kf <alias>
+    create or inspect profile-scoped cluster aliases
 
     USAGE:
-      rr alias <cluster_alias> <cluster_full_name>
-      rr alias -p <profile> <cluster_alias> <cluster_full_name>
+      rr alias
+      rr alias -p <profile>
       rr alias --list
 
     FLAGS:
@@ -146,5 +157,102 @@ defmodule RR.Alias do
       "" -> nil
       trimmed -> trimmed
     end
+  end
+
+  defp prompt_alias_name do
+    alias_name =
+      [label: "alias text"]
+      |> Owl.IO.input()
+      |> String.trim()
+
+    case alias_name do
+      "" ->
+        Shell.error("alias text cannot be blank")
+        prompt_alias_name()
+
+      _ ->
+        {:ok, alias_name}
+    end
+  end
+
+  defp ensure_alias_available(profile_name, alias_name) do
+    case Profiles.resolve_alias(alias_name) do
+      :miss ->
+        {:ok, nil}
+
+      {:ok, %{profile_name: ^profile_name} = existing_alias} ->
+        {:ok, existing_alias}
+
+      {:ok, %{profile_name: owner_profile_name, cluster_name: owner_cluster_name}} ->
+        {:error,
+         "alias '#{alias_name}' is already claimed by profile '#{owner_profile_name}' for cluster '#{owner_cluster_name}'"}
+
+      {:error, :duplicate_aliases, matches} ->
+        {:error, render_duplicate_alias_error(alias_name, matches)}
+    end
+  end
+
+  defp select_cluster_name(auth) do
+    with {:ok, clusters} <- RancherHttpClient.get_clusters(auth) do
+      cluster_names =
+        clusters
+        |> Enum.map(& &1["name"])
+        |> Enum.reject(&is_nil/1)
+        |> Enum.sort()
+
+      case cluster_names do
+        [] ->
+          {:error, "no clusters found for profile '#{auth.profile_name}'"}
+
+        _ ->
+          {:ok, Owl.IO.select(cluster_names, label: "select cluster")}
+      end
+    end
+  end
+
+  defp maybe_confirm_overwrite(_alias_name, nil, _cluster_name), do: :ok
+
+  defp maybe_confirm_overwrite(alias_name, %{cluster_name: current_cluster_name}, cluster_name) do
+    if Owl.IO.confirm(
+         message: [
+           "alias '#{alias_name}' already points to '#{current_cluster_name}'",
+           "overwrite it with '#{cluster_name}'?"
+         ]
+       ) do
+      :ok
+    else
+      :abort
+    end
+  end
+
+  defp persist_alias(profile_name, alias_name, cluster_name) do
+    case Profiles.put_alias(profile_name, alias_name, cluster_name) do
+      :ok ->
+        :ok
+
+      {:error, :alias_owned_by_other_profile, %{profile_name: owner_profile_name, cluster_name: owner_cluster_name}} ->
+        {:error,
+         "alias '#{alias_name}' is already claimed by profile '#{owner_profile_name}' for cluster '#{owner_cluster_name}'"}
+
+      {:error, :duplicate_aliases, matches} ->
+        {:error, render_duplicate_alias_error(alias_name, matches)}
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  defp render_duplicate_alias_error(alias_name, matches) do
+    details =
+      matches
+      |> Enum.sort_by(fn %{profile_name: profile_name, cluster_name: cluster_name} ->
+        {profile_name, cluster_name}
+      end)
+      |> Enum.map_join("\n", fn %{profile_name: profile_name, cluster_name: cluster_name} ->
+        "  #{profile_name} -> #{cluster_name}"
+      end)
+
+    "alias '#{alias_name}' exists more than once in local config:\n#{details}\n" <>
+      "please remove the duplicate alias entries before retrying"
   end
 end
