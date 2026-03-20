@@ -33,7 +33,7 @@ defmodule RR.Login do
         {:error, "rr login command doesn't take any subcommands\nyou provided: #{Enum.join(rest, " ")}"}
 
       true ->
-        {:ok, normalize_profile_name(Keyword.get(switches, :profile))}
+        {:ok, Profiles.normalize_profile_name(Keyword.get(switches, :profile))}
     end
   end
 
@@ -85,7 +85,7 @@ defmodule RR.Login do
     profile_name =
       [label: "profile name"]
       |> Owl.IO.input()
-      |> normalize_profile_name()
+      |> Profiles.normalize_profile_name()
 
     cond do
       is_nil(profile_name) ->
@@ -126,17 +126,6 @@ defmodule RR.Login do
     token = Owl.IO.input(label: "rancher token (in the form of token-xxxx:xxxxxx)", secret: true)
 
     %Auth{profile_name: profile_name, rancher_hostname: hostname, rancher_token: token}
-  end
-
-  defp normalize_profile_name(nil), do: nil
-
-  defp normalize_profile_name(profile_name) do
-    profile_name
-    |> String.trim()
-    |> case do
-      "" -> nil
-      trimmed -> trimmed
-    end
   end
 
   defp maybe_login(profile_name) do

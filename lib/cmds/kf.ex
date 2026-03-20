@@ -12,8 +12,8 @@ defmodule RR.KubeConfig do
 
   def run(args) do
     with {:ok, {switches, cluster_name_substring}} <- parse_args(args),
-         {:ok, auth, target_cluster} <-
-           resolve_target_cluster(normalize_profile_name(Keyword.get(switches, :profile)), cluster_name_substring),
+         profile_name = Profiles.normalize_profile_name(Keyword.get(switches, :profile)),
+         {:ok, auth, target_cluster} <- resolve_target_cluster(profile_name, cluster_name_substring),
          {:ok, kubconfig_path} <-
            ensure_valid_kubeconfig(auth, target_cluster, Keyword.get(switches, :new, false)) do
       output_kubeconfig_path(kubconfig_path, Keyword.get(switches, :sh, false))
@@ -141,33 +141,20 @@ defmodule RR.KubeConfig do
     Enum.map(raw_clusters, &%__MODULE__{profile_name: profile_name, id: &1["id"], name: &1["name"]})
   end
 
-  defp select_cluster(clusters, cluster_name_substring, include_profile_guidance?) do
+  defp select_cluster(clusters, cluster_name_substring) do
     case Enum.filter(clusters, &String.contains?(&1.name, cluster_name_substring)) do
       [] ->
-        if include_profile_guidance? do
-          {:error, "no match were found for the cluster name '#{cluster_name_substring}' in any profile"}
-        else
-          {:error, "no match were found for the cluster name '#{cluster_name_substring}'"}
-        end
+        {:error, "no match were found for the cluster name '#{cluster_name_substring}' in any profile"}
 
       [cluster] ->
         {:ok, cluster}
 
       [_ | _] = matched_clusters ->
-        if include_profile_guidance? do
-          {:error,
-           render_cross_profile_ambiguity(
-             cluster_name_substring,
-             Enum.map(matched_clusters, &%{profile_name: &1.profile_name, cluster_name: &1.name})
-           )}
-        else
-          {:error,
-           [
-             "more than one matches were found for the cluster name '#{cluster_name_substring}'\nthese matches are found:\n",
-             Enum.map(matched_clusters, &[" ", &1.name, "\n"]),
-             "please make your cluster name more precise so that there will only be one single match"
-           ]}
-        end
+        {:error,
+         render_cluster_ambiguity_options(
+           cluster_name_substring,
+           Enum.map(matched_clusters, &%{profile_name: &1.profile_name, cluster_name: &1.name})
+         )}
     end
   end
 
@@ -191,7 +178,7 @@ defmodule RR.KubeConfig do
       with {:ok, auth} <- Auth.ensure_valid_auth(profile_name),
            cluster_name = resolve_alias_in_profile(cluster_name_substring, profile_name),
            {:ok, clusters} <- RancherHttpClient.get_clusters(auth),
-           {:ok, target_cluster} <- profile_name |> parse_cluster(clusters) |> select_cluster(cluster_name, false) do
+           {:ok, target_cluster} <- profile_name |> parse_cluster(clusters) |> select_cluster(cluster_name) do
         {:ok, auth, target_cluster}
       end
     else
@@ -200,26 +187,18 @@ defmodule RR.KubeConfig do
   end
 
   defp resolve_target_cluster(nil, cluster_name_substring) do
-    case Profiles.names() do
-      [] ->
-        {:error, "no profiles configured\nto login, run: rr login"}
+    case Alias.resolve(cluster_name_substring) do
+      {:ok, %{profile_name: profile_name, cluster_name: cluster_name}} ->
+        Shell.info_stderr("resolving alias in profile '#{profile_name}': #{cluster_name_substring} -> #{cluster_name}")
 
-      _profile_names ->
-        case Alias.resolve(cluster_name_substring) do
-          {:ok, %{profile_name: profile_name, cluster_name: cluster_name}} ->
-            Shell.info_stderr(
-              "resolving alias in profile '#{profile_name}': #{cluster_name_substring} -> #{cluster_name}"
-            )
+        resolve_target_cluster(profile_name, cluster_name)
 
-            resolve_target_cluster(profile_name, cluster_name)
-
-          :miss ->
-            with {:ok, auths} <- load_all_auths(),
-                 {:ok, clusters} <- fetch_clusters_for_auths(auths),
-                 {:ok, target_cluster} <- select_cluster(clusters, cluster_name_substring, true),
-                 {:ok, auth} <- auth_for_profile(auths, target_cluster.profile_name) do
-              {:ok, auth, target_cluster}
-            end
+      :miss ->
+        with {:ok, auths} <- Auth.all_auths(),
+             {:ok, clusters} <- fetch_clusters_for_auths(auths),
+             {:ok, target_cluster} <- select_cluster(clusters, cluster_name_substring),
+             {:ok, auth} <- auth_for_profile(auths, target_cluster.profile_name) do
+          {:ok, auth, target_cluster}
         end
     end
   end
@@ -233,26 +212,6 @@ defmodule RR.KubeConfig do
 
       :miss ->
         cluster_name_substring
-    end
-  end
-
-  defp load_all_auths do
-    auths =
-      Enum.map(Profiles.names(), fn profile_name ->
-        {profile_name, Auth.ensure_valid_auth(profile_name)}
-      end)
-
-    errors =
-      Enum.flat_map(auths, fn
-        {profile_name, {:error, _reason, reason}} -> [{profile_name, reason}]
-        {profile_name, {:error, reason}} -> [{profile_name, reason}]
-        {_profile_name, {:ok, _auth}} -> []
-      end)
-
-    if errors == [] do
-      {:ok, Enum.map(auths, fn {_profile_name, {:ok, auth}} -> auth end)}
-    else
-      {:error, render_profile_errors("failed to validate one or more profiles", errors)}
     end
   end
 
@@ -285,7 +244,7 @@ defmodule RR.KubeConfig do
     end
   end
 
-  defp render_cross_profile_ambiguity(cluster_name_substring, matches) do
+  defp render_cluster_ambiguity_options(cluster_name_substring, matches) do
     details =
       matches
       |> Enum.sort_by(fn %{profile_name: profile_name, cluster_name: cluster_name} ->
@@ -298,8 +257,10 @@ defmodule RR.KubeConfig do
     "more than one matches were found for the cluster name '#{cluster_name_substring}'\n" <>
       "these matches are found:\n" <>
       details <>
-      "please use -p auth_name to specify the cluster\n" <>
-      "or narrow the cluster name / use rr alias"
+      "you have three options:\n" <>
+      "1. to select a certain profile, use -p\n" <>
+      "2. be more specific on the name\n" <>
+      "3. use rr alias"
   end
 
   defp render_profile_errors(prefix, errors) do
@@ -309,16 +270,5 @@ defmodule RR.KubeConfig do
       end)
 
     "#{prefix}:\n#{details}"
-  end
-
-  defp normalize_profile_name(nil), do: nil
-
-  defp normalize_profile_name(profile_name) do
-    profile_name
-    |> String.trim()
-    |> case do
-      "" -> nil
-      trimmed -> trimmed
-    end
   end
 end

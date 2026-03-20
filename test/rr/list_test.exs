@@ -33,7 +33,7 @@ defmodule RR.ListTest do
   end
 
   describe "run/1" do
-    test "renders a two-column table for one explicit profile" do
+    test "renders a profile-aware table for one explicit profile" do
       Profiles.put(
         "prod",
         %Auth{
@@ -57,14 +57,15 @@ defmodule RR.ListTest do
 
       output = ExUnit.CaptureIO.capture_io(fn -> List.run(["-p", "prod"]) end)
 
+      assert output =~ "PROFILE"
       assert output =~ "NAME"
       assert output =~ "ID"
-      refute output =~ "PROFILE"
+      assert output =~ "prod"
       assert output =~ "production"
       assert output =~ "c-prod"
     end
 
-    test "renders a combined table with profile column when no profile is provided" do
+    test "renders the same profile-aware table when no profile is provided" do
       Profiles.put(
         "prod",
         %Auth{

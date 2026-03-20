@@ -41,14 +41,31 @@ defmodule RR.Config.Auth do
     end
   end
 
-  @spec all_auths() :: [Auth.t()]
+  @spec all_auths() :: {:ok, [Auth.t()]} | {:error, binary()}
   def all_auths do
-    Enum.flat_map(Profiles.names(), fn profile_name ->
-      case get_auth(profile_name) do
-        {:ok, auth} -> [auth]
-        {:error, _reason} -> []
-      end
-    end)
+    case Profiles.names() do
+      [] ->
+        {:error, "no profiles configured\nto login, run: rr login"}
+
+      profile_names ->
+        auths =
+          Enum.map(profile_names, fn profile_name ->
+            {profile_name, ensure_valid_auth(profile_name)}
+          end)
+
+        errors =
+          Enum.flat_map(auths, fn
+            {profile_name, {:error, _reason, reason}} -> [{profile_name, reason}]
+            {profile_name, {:error, reason}} -> [{profile_name, reason}]
+            {_profile_name, {:ok, _auth}} -> []
+          end)
+
+        if errors == [] do
+          {:ok, Enum.map(auths, fn {_profile_name, {:ok, auth}} -> auth end)}
+        else
+          {:error, render_profile_errors("failed to load one or more profiles", errors)}
+        end
+    end
   end
 
   @spec check_auth_validity_from_ets_or_rancher(Auth.t()) :: {:ok, Auth.t()} | error()
@@ -127,6 +144,15 @@ defmodule RR.Config.Auth do
 
   defp login_command("default"), do: "rr login"
   defp login_command(profile_name), do: "rr login -p #{profile_name}"
+
+  defp render_profile_errors(prefix, errors) do
+    details =
+      Enum.map_join(errors, "\n", fn {profile_name, reason} ->
+        "  #{profile_name}: #{reason}"
+      end)
+
+    "#{prefix}:\n#{details}"
+  end
 
   defp ensure_auth_cache_table do
     case :ets.whereis(@auth_cache_table) do

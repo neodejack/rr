@@ -78,6 +78,13 @@ defmodule RR.Config.ProfilesTest do
       assert Profiles.names() == ["prod", "stage"]
     end
 
+    test "normalizes profile names consistently" do
+      assert Profiles.normalize_profile_name(nil) == nil
+      assert Profiles.normalize_profile_name("") == nil
+      assert Profiles.normalize_profile_name("   ") == nil
+      assert Profiles.normalize_profile_name(" prod ") == "prod"
+    end
+
     test "gets one profile with aliases normalized" do
       assert {:ok,
               %{

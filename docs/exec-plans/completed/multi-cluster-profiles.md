@@ -136,7 +136,7 @@ Next, refactor `lib/cmds/alias.ex` around the revised interactive flow. Parsing 
 7. If the alias already existed in the selected profile, show the current mapping and ask for overwrite confirmation before saving. If the user declines, exit with `:ok` and leave config unchanged.
 8. Save the alias and print a confirmation message that includes the profile name and full cluster name.
 
-Then adjust `lib/cmds/kf.ex` so it matches the new alias contract. The `-p` path already looks correct: it validates the named profile first, resolves aliases only inside that profile, then fetches clusters only for that profile. Keep that order. The no-`-p` path should continue to check aliases before substring matching, and it should treat `resolve_alias/1` as a strict two-outcome contract: one exact alias hit or `:miss`. Preserve the required guidance line `please use -p auth_name to specify the cluster` for ambiguous full cluster names across profiles and for same-name matches under different profiles.
+Then adjust `lib/cmds/kf.ex` so it matches the new alias contract. The `-p` path already looks correct: it validates the named profile first, resolves aliases only inside that profile, then fetches clusters only for that profile. Keep that order. The no-`-p` path should continue to check aliases before substring matching, and it should treat `resolve_alias/1` as a strict two-outcome contract: one exact alias hit or `:miss`. Use one shared ambiguity renderer for both single-profile and cross-profile multi-match results so the guidance stays consistent.
 
 Review `lib/cmds/login.ex`, `lib/cmds/list.ex`, and `lib/rr.ex` last. Most of the revised-spec behavior is already present there, so the expected work is small: keep the command help text aligned with the new alias syntax, keep terminology consistently on “profile”, and ensure no help output or prompt text suggests a hidden current profile. Internal compatibility wrappers around `"default"` may remain only where they support legacy migration or old tests; do not route new user-facing behavior through them.
 
@@ -196,13 +196,13 @@ The implementation is acceptable only when a human can observe the revised-spec 
 
 `rr login` must remain the only entry point for creating or updating profiles. `rr login -p <profile>` must still write directly into the named profile. `rr login` without `-p` must still offer the create-versus-update flow and must not imply a persistent current profile.
 
-`rr list -p <profile>` must still list only that profile’s clusters. `rr list` without `-p` must still render clusters from all saved profiles with a `PROFILE` column. When no profiles exist, the command must return a clear no-profiles message instead of behaving as if one implicit auth exists.
+`rr list -p <profile>` must still list only that profile’s clusters, and `rr list` should render a `PROFILE` column in its table output regardless of whether one profile or many profiles are being shown. When no profiles exist, the command must return a clear no-profiles message instead of behaving as if one implicit auth exists.
 
 `rr alias` and `rr alias -p <profile>` must now complete alias creation through prompts only. No positional alias or cluster arguments should be required. After the profile is fixed, the command must prompt for alias text first and cluster choice second. If the selected profile has no clusters, the command must fail with a clear message before asking the user to pick a cluster from an empty list.
 
 Alias text must be globally unique across all profiles. Creating alias `prod` under profile `a` must prevent creating or moving alias `prod` under profile `b`. Reusing alias `prod` inside profile `a` must show the current mapping and ask for explicit overwrite confirmation before saving.
 
-`rr kf -p <profile> token` must keep searching only inside that profile. `rr kf token` without `-p` must continue to search across profiles, but when `token` is an alias, alias resolution must narrow to the alias’s owning profile before cluster lookup. Ambiguous full-cluster-name matches across profiles must still name both the cluster and the profile and must include `please use -p auth_name to specify the cluster`.
+`rr kf -p <profile> token` must keep searching only inside that profile. `rr kf token` without `-p` must continue to search across profiles, but when `token` is an alias, alias resolution must narrow to the alias’s owning profile before cluster lookup. Ambiguous full-cluster-name matches must still name both the cluster and the profile and must explain the three supported resolution paths: use `-p`, be more specific, or use `rr alias`.
 
 Focused tests for profiles, alias, kubeconfig, login, and list must pass, followed by a clean `just check`.
 
@@ -251,8 +251,10 @@ Expected cross-profile cluster ambiguity transcript for `rr kf api`:
     these matches are found:
       prod -> api
       stage -> api
-    please use -p auth_name to specify the cluster
-    or narrow the cluster name / use rr alias
+    you have three options:
+    1. to select a certain profile, use -p
+    2. be more specific on the name
+    3. use rr alias
 
 Expected cross-profile alias ownership error:
 

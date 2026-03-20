@@ -23,6 +23,18 @@ defmodule RR.Config.Profiles do
     |> Enum.sort()
   end
 
+  @spec normalize_profile_name(String.t() | nil) :: String.t() | nil
+  def normalize_profile_name(nil), do: nil
+
+  def normalize_profile_name(profile_name) when is_binary(profile_name) do
+    profile_name
+    |> String.trim()
+    |> case do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+
   @spec get(String.t()) :: {:ok, map()} | {:error, String.t()}
   def get(profile_name) when is_binary(profile_name) do
     case Kernel.get_in(state(), [@profiles_key, profile_name]) do

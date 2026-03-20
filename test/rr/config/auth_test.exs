@@ -29,7 +29,7 @@ defmodule RR.Config.AuthTest do
       clear_auth_cache()
     end)
 
-    :ok
+    {:ok, store: store}
   end
 
   describe "ensure_valid_auth/1" do
@@ -71,6 +71,34 @@ defmodule RR.Config.AuthTest do
       tid = :ets.whereis(:rr_auth_cache)
       assert :ets.lookup(tid, {"default", "https://rancher.example", "token-123:abc"}) != []
       assert :ets.lookup(tid, {"stage", "https://rancher.example", "token-123:abc"}) != []
+    end
+  end
+
+  describe "all_auths/0" do
+    test "returns a clear error when no profiles are configured", %{store: store} do
+      Agent.update(store, fn _ -> %{} end)
+
+      assert {:error, "no profiles configured\nto login, run: rr login"} = Auth.all_auths()
+    end
+
+    test "returns profile-specific errors for incomplete auth config", %{store: store} do
+      Agent.update(store, fn _ -> %{} end)
+
+      Profiles.put(
+        "stage",
+        %Auth{
+          profile_name: "stage",
+          rancher_hostname: "https://stage.example",
+          rancher_token: "token-stage:abc"
+        }
+      )
+
+      Config.put_in(["profiles", "stage", "rancher_token"], nil)
+
+      assert {:error, message} = Auth.all_auths()
+      assert message =~ "failed to load one or more profiles"
+      assert message =~ "stage: auth config file incomplete for profile 'stage'"
+      assert message =~ "to login, run: rr login -p stage"
     end
   end
 

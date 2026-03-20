@@ -67,7 +67,7 @@ defmodule RR.Alias do
         {:ok, {:list}}
 
       rest == [] ->
-        {:ok, {:set, normalize_profile_name(Keyword.get(switches, :profile))}}
+        {:ok, {:set, Profiles.normalize_profile_name(Keyword.get(switches, :profile))}}
 
       true ->
         render_help()
@@ -145,17 +145,6 @@ defmodule RR.Alias do
 
       profile_names ->
         {:ok, Owl.IO.select(profile_names, label: "select profile")}
-    end
-  end
-
-  defp normalize_profile_name(nil), do: nil
-
-  defp normalize_profile_name(profile_name) do
-    profile_name
-    |> String.trim()
-    |> case do
-      "" -> nil
-      trimmed -> trimmed
     end
   end
 

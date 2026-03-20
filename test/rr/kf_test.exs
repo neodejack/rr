@@ -103,7 +103,7 @@ defmodule RR.KubeConfigTest do
       assert File.read!(expected_path) =~ "apiVersion: v1"
     end
 
-    test "reports ambiguous matches across profiles with guidance" do
+    test "reports ambiguous matches across profiles with the shared guidance options" do
       Profiles.put(
         "prod",
         %Auth{
@@ -137,7 +137,39 @@ defmodule RR.KubeConfigTest do
       assert {:error, message} = KubeConfig.run(["api"])
       assert message =~ "prod -> api"
       assert message =~ "stage -> api"
-      assert message =~ "please use -p auth_name to specify the cluster"
+      assert message =~ "you have three options:"
+      assert message =~ "1. to select a certain profile, use -p"
+      assert message =~ "2. be more specific on the name"
+      assert message =~ "3. use rr alias"
+    end
+
+    test "reports ambiguous matches inside one profile with the shared guidance options" do
+      Profiles.put(
+        "prod",
+        %Auth{
+          profile_name: "prod",
+          rancher_hostname: "https://prod.example",
+          rancher_token: "token-prod:abc"
+        }
+      )
+
+      expect(RancherMock, :get_token_info, fn %Auth{profile_name: "prod"} ->
+        valid_token_info("prod")
+      end)
+
+      expect(RancherMock, :get_clusters, fn %Auth{profile_name: "prod"} ->
+        {:ok, [%{"id" => "c-prod-1", "name" => "api-blue"}, %{"id" => "c-prod-2", "name" => "api-green"}]}
+      end)
+
+      expect(RancherMock, :get_kubeconfig, 0, fn _auth, kubeconfig -> {:ok, kubeconfig} end)
+
+      assert {:error, message} = KubeConfig.run(["-p", "prod", "api"])
+      assert message =~ "prod -> api-blue"
+      assert message =~ "prod -> api-green"
+      assert message =~ "you have three options:"
+      assert message =~ "1. to select a certain profile, use -p"
+      assert message =~ "2. be more specific on the name"
+      assert message =~ "3. use rr alias"
     end
 
     test "raises when local config contains duplicate aliases", %{store: store} do
