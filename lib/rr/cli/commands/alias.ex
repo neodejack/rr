@@ -1,13 +1,37 @@
 defmodule RR.CLI.Commands.Alias do
   @moduledoc false
+  @behaviour RR.CLI.Command
+
+  alias RR.CLI.ArgParser
+  alias RR.CLI.Help
   alias RR.CLI.Output
+  alias RR.CLI.ParseError
   alias RR.Services.Aliases
 
+  defmodule ListAction do
+    @moduledoc false
+    defstruct []
+  end
+
+  defmodule SetAction do
+    @moduledoc false
+
+    @enforce_keys [:alias_name, :full_name]
+    defstruct [:alias_name, :full_name]
+  end
+
   def run(args) do
-    with {:ok, {alias_name, full_name}} <- parse_args(args) do
-      Aliases.set(alias_name, full_name)
-      Output.info_stdout("alias: #{alias_name} -> #{full_name} ")
-      :ok
+    case parse(args) do
+      {:ok, %Help{}} ->
+        Output.info_stdout(help())
+        :ok
+
+      {:ok, action} ->
+        execute(action)
+
+      {:error, %ParseError{message: message}} ->
+        Output.info_stdout(help())
+        {:error, message}
     end
   end
 
@@ -15,43 +39,39 @@ defmodule RR.CLI.Commands.Alias do
     Aliases.resolve(alias)
   end
 
-  defp parse_args(args) do
-    {switches, rest, invalid_args} = OptionParser.parse(args, args_definition())
+  @impl true
+  def parse(args) do
+    with {:ok, switches, rest} <- ArgParser.parse(args, args_definition(), __MODULE__) do
+      cond do
+        Keyword.has_key?(switches, :help) ->
+          {:ok, %Help{module: __MODULE__}}
 
-    cond do
-      invalid_args != [] ->
-        invalids = Enum.map(invalid_args, fn {arg, _value} -> arg end)
-        render_help()
-        {:error, ["the arguments you provided are invalid:", invalids]}
+        Keyword.has_key?(switches, :list) and rest == [] ->
+          {:ok, %ListAction{}}
 
-      Keyword.has_key?(switches, :help) ->
-        render_help()
-        :ok
+        Keyword.has_key?(switches, :list) ->
+          {:error,
+           %ParseError{
+             module: __MODULE__,
+             message: "--list does not take positional args\nyou provided: #{Enum.join(rest, " ")}"
+           }}
 
-      Keyword.has_key?(switches, :list) ->
-        render_alias_list()
+        match?([_, _], rest) ->
+          [alias_name, full_name] = rest
+          {:ok, %SetAction{alias_name: alias_name, full_name: full_name}}
 
-      match?([_, _], rest) ->
-        [alias_name, full] = rest
-        {:ok, {alias_name, full}}
-
-      true ->
-        render_help()
-        {:error, "you didn't provide valid <cluster_alias> and <cluster_full_name>"}
+        true ->
+          {:error,
+           %ParseError{
+             module: __MODULE__,
+             message: "you didn't provide valid <cluster_alias> and <cluster_full_name>"
+           }}
+      end
     end
   end
 
-  defp args_definition do
-    [
-      strict: [
-        help: :boolean,
-        list: :boolean
-      ],
-      alias: [h: :help]
-    ]
-  end
-
-  defp render_alias_list do
+  @impl true
+  def execute(%ListAction{}) do
     aliases = Aliases.list()
 
     if map_size(aliases) > 0 do
@@ -67,10 +87,20 @@ defmodule RR.CLI.Commands.Alias do
     :ok
   end
 
-  defp render_help do
-    Output.info_stdout("""
+  def execute(%SetAction{alias_name: alias_name, full_name: full_name}) do
+    Aliases.set(alias_name, full_name)
+    Output.info_stdout("alias: #{alias_name} -> #{full_name} ")
+    :ok
+  end
 
-    `rr alias` set alias. 
+  @impl true
+  def summary, do: "set cluster aliases"
+
+  @impl true
+  def help do
+    """
+
+    `rr alias` set alias.
     alias will be substituted when used in `rr kf <alias>
 
     USAGE:
@@ -79,6 +109,16 @@ defmodule RR.CLI.Commands.Alias do
 
     FlAGS:
       --list List all the aliases currently set
-    """)
+    """
+  end
+
+  defp args_definition do
+    [
+      strict: [
+        help: :boolean,
+        list: :boolean
+      ],
+      alias: [h: :help]
+    ]
   end
 end

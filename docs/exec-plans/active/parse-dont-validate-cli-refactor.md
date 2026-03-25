@@ -17,7 +17,7 @@ After implementation, maintainers will be able to read command behavior in isola
 - [x] (2026-03-25 09:28Z) Drafted this ExecPlan from current repository state and aligned structure with `docs/PLAN.md` requirements.
 - [x] (2026-03-25 09:31Z) Implemented command action data types and parsing boundary modules in `lib/rr/cli/`, then verified the repository still formats, compiles, and passes tests.
 - [x] (2026-03-25 09:35Z) Migrated `yo` and `list` to explicit `parse/1` and `execute/1`, added parser-focused tests, and confirmed the full test suite still passes.
-- [ ] Migrate `alias` and `kf` commands to mode-specific action structs and pure parse phase.
+- [x] (2026-03-25 09:44Z) Migrated `alias` and `kf` to typed actions and pure parse functions, added new `alias` tests plus real `kf` coverage, and verified the full suite again.
 - [ ] Migrate `login` and top-level `RR.CLI` dispatch/rendering to unified parse outcomes.
 - [ ] Add parser-focused tests and run full validation (`mix format --check-formatted`, `mix compile --warnings-as-errors`, `mix test`).
 - [ ] Record completion outcomes and move this plan to `docs/exec-plans/completed/`.
@@ -40,6 +40,12 @@ After implementation, maintainers will be able to read command behavior in isola
 - Observation: The existing command tests were compatible with transitional `run/1` wrappers, so parser-focused assertions could be added without rewriting current behavior tests.
   Evidence: after converting `yo` and `list`, `mix test test/rr/cli/commands/yo_test.exs`, `mix test test/rr/cli/commands/list_test.exs`, and `mix test` all passed.
 
+- Observation: `alias` needed the help-outcome clause to be ordered before the generic success clause in its temporary `run/1` wrapper, or the compiler correctly flagged the help branch as unreachable.
+  Evidence: `mix compile --warnings-as-errors` failed once with an unreachable-clause warning in `lib/rr/cli/commands/alias.ex`, then passed after reordering the case clauses.
+
+- Observation: `kf` execution-path tests can avoid `kubectl` and live Rancher dependencies by exercising the overwrite path (`--new`) with mocked providers and a temporary `RR_HOME`.
+  Evidence: `mix test test/rr/cli/commands/kf_test.exs` passed while writing a kubeconfig fixture under a temporary directory and rendering `export KUBECONFIG=...` from the real shell template.
+
 
 ## Decision Log
 
@@ -59,12 +65,18 @@ After implementation, maintainers will be able to read command behavior in isola
   Rationale: This preserves current user-visible behavior while allowing command-local parse functions to become side-effect free immediately.
   Date/Author: 2026-03-25 / Codex
 
+- Decision: Model `alias` actions with separate `%ListAction{}` and `%SetAction{}` structs instead of one struct with mode flags.
+  Rationale: The command has two mutually exclusive behaviors, and separate action types let `execute/1` pattern match each mode without runtime branching on options or missing fields.
+  Date/Author: 2026-03-25 / Codex
+
 
 ## Outcomes & Retrospective
 
 Milestone 1 is complete. The repository now has explicit shared types for help, parse errors, and parsed invocations, plus a command behavior and shared option parser wrapper. User-visible behavior is unchanged so far, which is the intended outcome for this first milestone because it reduces structural risk before migrating individual commands.
 
 Milestone 2 is also complete. `yo` and `list` now expose pure `parse/1` functions and action-only `execute/1` functions, while their legacy `run/1` entrypoints still preserve current help and error rendering. Parser-specific tests now cover help requests and invalid positional arguments for these commands.
+
+Milestone 3 is complete. `alias` now parses into distinct list and set actions, and `kf` now parses its cluster and flags into a single trusted action struct before any side effects begin. Tests now cover invalid `alias`/`kf` argument combinations at parse time plus one real `kf` execution path that exercises kubeconfig output generation without external connectivity.
 
 
 ## Context and Orientation
@@ -297,3 +309,5 @@ Revision note (2026-03-25): Created this plan to guide a full “parse then exec
 Revision note (2026-03-25): Updated the plan after completing Milestone 1 so progress, discoveries, and outcomes reflect the new shared CLI boundary modules and successful verification runs.
 
 Revision note (2026-03-25): Updated the plan after completing Milestone 2 to document the `yo` and `list` migration, the temporary wrapper strategy, and the parser-focused verification coverage now in place.
+
+Revision note (2026-03-25): Updated the plan after completing Milestone 3 to record the typed `alias` and `kf` action design, the temporary wrapper warning fix, and the new execution-path testing strategy for kubeconfig output.
