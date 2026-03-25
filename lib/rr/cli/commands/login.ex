@@ -14,20 +14,6 @@ defmodule RR.CLI.Commands.Login do
 
   defstruct []
 
-  def run(args) do
-    case parse(args) do
-      {:ok, %__MODULE__{} = action} ->
-        execute(action)
-
-      {:ok, %Help{}} ->
-        Output.info_stdout(help())
-        :ok
-
-      {:error, %ParseError{message: message}} ->
-        {:error, message}
-    end
-  end
-
   @impl true
   def parse(args) do
     case args do

@@ -19,8 +19,8 @@ After implementation, maintainers will be able to read command behavior in isola
 - [x] (2026-03-25 09:35Z) Migrated `yo` and `list` to explicit `parse/1` and `execute/1`, added parser-focused tests, and confirmed the full test suite still passes.
 - [x] (2026-03-25 09:44Z) Migrated `alias` and `kf` to typed actions and pure parse functions, added new `alias` tests plus real `kf` coverage, and verified the full suite again.
 - [x] (2026-03-25 09:56Z) Migrated `login` and `RR.CLI` to unified parse outcomes, added CLI-level dispatcher tests, and manually verified central help/error rendering with `mix run --no-start`.
-- [ ] Add parser-focused tests and run full validation (`mix format --check-formatted`, `mix compile --warnings-as-errors`, `mix test`).
-- [ ] Record completion outcomes and move this plan to `docs/exec-plans/completed/`.
+- [x] (2026-03-25 10:01Z) Removed transitional command `run/1` wrappers, updated command tests to use `parse/1` and `execute/1` directly, and ran the full validation gates plus the parse-helper cleanup search.
+- [x] (2026-03-25 10:01Z) Recorded final outcomes and prepared to move this plan from `docs/exec-plans/active/` to `docs/exec-plans/completed/`.
 
 
 ## Surprises & Discoveries
@@ -52,6 +52,9 @@ After implementation, maintainers will be able to read command behavior in isola
 - Observation: A manual `alias --list` probe in the default non-test environment is blocked by an existing provider-resolution issue unrelated to this refactor.
   Evidence: `RR_HOME=/tmp/rr-manual-check mix run --no-start -e 'IO.inspect(RR.CLI.run(["alias", "--list"]))'` failed with `UndefinedFunctionError` for `RR.Providers.SettingsStore.Impl.read/0`.
 
+- Observation: After the top-level dispatcher was in place, the command-level `run/1` wrappers were truly dead code; only tests still referenced them.
+  Evidence: `rg -n "\\.run\\(" test lib | sort` showed command-wrapper usage only inside command tests plus `RR.CLI.run/1` itself, so the wrappers could be removed cleanly by moving tests to `execute/1`.
+
 
 ## Decision Log
 
@@ -79,6 +82,10 @@ After implementation, maintainers will be able to read command behavior in isola
   Rationale: This keeps the command compatible with the shared parse/help model and avoids unreachable wrapper branches under `--warnings-as-errors`.
   Date/Author: 2026-03-25 / Codex
 
+- Decision: Remove the migrated command modules’ transitional `run/1` wrappers once `RR.CLI` became the only dispatcher.
+  Rationale: Keeping wrapper entrypoints after the refactor would preserve a second command flow, duplicate help/error rendering logic, and obscure whether the new parse/execute split was truly authoritative.
+  Date/Author: 2026-03-25 / Codex
+
 
 ## Outcomes & Retrospective
 
@@ -89,6 +96,8 @@ Milestone 2 is also complete. `yo` and `list` now expose pure `parse/1` function
 Milestone 3 is complete. `alias` now parses into distinct list and set actions, and `kf` now parses its cluster and flags into a single trusted action struct before any side effects begin. Tests now cover invalid `alias`/`kf` argument combinations at parse time plus one real `kf` execution path that exercises kubeconfig output generation without external connectivity.
 
 Milestone 4 is complete. `login` now follows the same parse/execute contract as the other commands, and `RR.CLI` is now the central parser/dispatcher that renders root help, command help, parse errors, and version output. CLI-level tests now cover command invocation parsing, centralized help rendering, centralized parse-error rendering, and version output. Manual no-start probes confirmed the new top-level behavior for `list unexpected`, `yo --help`, and `unknown`.
+
+The full plan is now complete. Every CLI command in scope parses raw argv into typed actions or typed parse outcomes before side effects begin, and `RR.CLI` is the sole top-level dispatcher. Transitional wrapper entrypoints have been removed, command tests now exercise `execute/1` directly, and the final cleanup search shows no remaining `parse_args` helpers or command-local `render_help()` parse side effects. Final verification passed with `mix format --check-formatted`, `mix compile --warnings-as-errors`, `mix test`, and `rg -n "defp parse_args|render_help\\(\\)" lib/rr/cli/commands`. The only remaining validation gap is the pre-existing non-test settings-store provider issue that blocked a manual `alias --list` probe under `mix run --no-start`; that issue was observed but not changed as part of this refactor.
 
 
 ## Context and Orientation
@@ -325,3 +334,5 @@ Revision note (2026-03-25): Updated the plan after completing Milestone 2 to doc
 Revision note (2026-03-25): Updated the plan after completing Milestone 3 to record the typed `alias` and `kf` action design, the temporary wrapper warning fix, and the new execution-path testing strategy for kubeconfig output.
 
 Revision note (2026-03-25): Updated the plan after completing Milestone 4 to capture the centralized `RR.CLI` parse/render flow, the new login help behavior, and the manual-verification caveats around `mix run --no-start` and the existing settings-store provider issue.
+
+Revision note (2026-03-25): Updated the plan at completion to record removal of the transitional command wrappers, final validation evidence, and the remaining unrelated manual-verification blocker before archiving the plan.

@@ -22,7 +22,7 @@ defmodule RR.CLI.Commands.YoTest do
   end
 
   test "prints shell integration snippet" do
-    output = ExUnit.CaptureIO.capture_io(fn -> Yo.run([]) end)
+    output = ExUnit.CaptureIO.capture_io(fn -> Yo.execute(%Yo{}) end)
 
     assert output =~ "yo()"
     assert output =~ "rr kf --sh"

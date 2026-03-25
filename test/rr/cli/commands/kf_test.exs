@@ -71,7 +71,7 @@ defmodule RR.CLI.Commands.KfTest do
     end
   end
 
-  describe "run/1" do
+  describe "execute/1" do
     test "fetches kubeconfig and renders shell export for parsed action" do
       expect(RancherMock, :get_clusters, fn _auth ->
         {:ok, [%{"id" => "c-1", "name" => "dev-cluster"}]}
@@ -83,7 +83,7 @@ defmodule RR.CLI.Commands.KfTest do
 
       output =
         ExUnit.CaptureIO.capture_io(fn ->
-          assert :ok = Kf.run(["dev", "--new", "--sh"])
+          assert :ok = Kf.execute(%Kf{cluster: "dev", new?: true, sh?: true})
         end)
 
       assert output =~ "export KUBECONFIG="

@@ -10,21 +10,6 @@ defmodule RR.CLI.Commands.List do
 
   defstruct []
 
-  def run(args) do
-    case parse(args) do
-      {:ok, %__MODULE__{} = action} ->
-        execute(action)
-
-      {:ok, %Help{}} ->
-        Output.info_stdout(help())
-        :ok
-
-      {:error, %ParseError{message: message}} ->
-        Output.info_stdout(help())
-        {:error, message}
-    end
-  end
-
   @impl true
   def parse(args) do
     with {:ok, switches, rest} <- ArgParser.parse(args, args_definition(), __MODULE__) do

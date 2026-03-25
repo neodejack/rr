@@ -20,21 +20,6 @@ defmodule RR.CLI.Commands.Alias do
     defstruct [:alias_name, :full_name]
   end
 
-  def run(args) do
-    case parse(args) do
-      {:ok, %Help{}} ->
-        Output.info_stdout(help())
-        :ok
-
-      {:ok, action} ->
-        execute(action)
-
-      {:error, %ParseError{message: message}} ->
-        Output.info_stdout(help())
-        {:error, message}
-    end
-  end
-
   def resolve(alias) do
     Aliases.resolve(alias)
   end

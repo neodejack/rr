@@ -65,7 +65,7 @@ defmodule RR.CLI.Commands.LoginTest do
     end
   end
 
-  describe "run/1" do
+  describe "execute/1" do
     test "invalid token does not print extra warnings" do
       Settings.put("rancher_hostname", @hostname)
       Settings.put("rancher_token", @token_invalid)
@@ -74,7 +74,7 @@ defmodule RR.CLI.Commands.LoginTest do
 
       {stderr, _stdout} =
         ExUnit.CaptureIO.with_io([input: "#{@hostname}\n#{@token_valid}\n"], fn ->
-          ExUnit.CaptureIO.capture_io(:stderr, fn -> Login.run([]) end)
+          ExUnit.CaptureIO.capture_io(:stderr, fn -> Login.execute(%Login{}) end)
         end)
 
       refute stderr =~ "To input a valid token, run the command below"
@@ -88,7 +88,7 @@ defmodule RR.CLI.Commands.LoginTest do
 
       {stderr, _stdout} =
         ExUnit.CaptureIO.with_io([input: "n\n"], fn ->
-          ExUnit.CaptureIO.capture_io(:stderr, fn -> Login.run([]) end)
+          ExUnit.CaptureIO.capture_io(:stderr, fn -> Login.execute(%Login{}) end)
         end)
 
       assert stderr =~ "warning: rancher token will expire in less than 7 days."
@@ -102,7 +102,7 @@ defmodule RR.CLI.Commands.LoginTest do
 
       {:ok, stdout} =
         ExUnit.CaptureIO.with_io([input: "n\n"], fn ->
-          Login.run([])
+          Login.execute(%Login{})
         end)
 
       assert stdout =~ "you already have a valid auth config with description"
@@ -116,7 +116,7 @@ defmodule RR.CLI.Commands.LoginTest do
         {:error, :unknown, "rancher api error - GET #{@hostname}/v3/tokens/token-valid\nboom"}
       end)
 
-      assert {:error, msg} = Login.run([])
+      assert {:error, msg} = Login.execute(%Login{})
       assert msg =~ "rancher api error"
     end
 
@@ -127,7 +127,7 @@ defmodule RR.CLI.Commands.LoginTest do
 
       result =
         ExUnit.CaptureIO.capture_io([input: "#{@hostname}\n#{@token_valid}\n"], fn ->
-          send(self(), {:result, Login.run([])})
+          send(self(), {:result, Login.execute(%Login{})})
         end)
 
       assert_received {:result, {:error, msg}}

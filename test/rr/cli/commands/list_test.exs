@@ -50,7 +50,7 @@ defmodule RR.CLI.Commands.ListTest do
     end
   end
 
-  describe "run/1" do
+  describe "execute/1" do
     test "renders a table of cluster names and ids" do
       clusters = [
         %{"id" => "c-1", "name" => "dev"},
@@ -61,7 +61,7 @@ defmodule RR.CLI.Commands.ListTest do
         {:ok, clusters}
       end)
 
-      output = ExUnit.CaptureIO.capture_io(fn -> List.run([]) end)
+      output = ExUnit.CaptureIO.capture_io(fn -> List.execute(%List{}) end)
 
       assert output =~ "NAME"
       assert output =~ "ID"
@@ -76,7 +76,7 @@ defmodule RR.CLI.Commands.ListTest do
         {:ok, []}
       end)
 
-      output = ExUnit.CaptureIO.capture_io(fn -> List.run([]) end)
+      output = ExUnit.CaptureIO.capture_io(fn -> List.execute(%List{}) end)
 
       assert output =~ "NAME"
       assert output =~ "no clusters found"

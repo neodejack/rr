@@ -51,11 +51,11 @@ defmodule RR.CLI.Commands.AliasTest do
     end
   end
 
-  describe "run/1" do
+  describe "execute/1" do
     test "writes an alias for set action" do
       output =
         ExUnit.CaptureIO.capture_io(fn ->
-          assert :ok = Alias.run(["prod", "production"])
+          assert :ok = Alias.execute(%SetAction{alias_name: "prod", full_name: "production"})
         end)
 
       assert output =~ "alias: prod -> production"
@@ -67,7 +67,7 @@ defmodule RR.CLI.Commands.AliasTest do
 
       output =
         ExUnit.CaptureIO.capture_io(fn ->
-          assert :ok = Alias.run(["--list"])
+          assert :ok = Alias.execute(%ListAction{})
         end)
 
       assert output =~ "these aliases are found"
