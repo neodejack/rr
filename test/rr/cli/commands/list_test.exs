@@ -4,6 +4,8 @@ defmodule RR.CLI.Commands.ListTest do
   import Mox
 
   alias RR.CLI.Commands.List
+  alias RR.CLI.Help
+  alias RR.CLI.ParseError
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
@@ -30,6 +32,22 @@ defmodule RR.CLI.Commands.ListTest do
     Settings.put("rancher_hostname", "https://rancher.example")
     Settings.put("rancher_token", "token-123:abc")
     :ok
+  end
+
+  describe "parse/1" do
+    test "returns an action for empty argv" do
+      assert {:ok, %List{}} = List.parse([])
+    end
+
+    test "returns help for --help" do
+      assert {:ok, %Help{module: List}} = List.parse(["--help"])
+    end
+
+    test "rejects unexpected positional args" do
+      assert {:error, %ParseError{module: List, message: message}} = List.parse(["unexpected"])
+      assert message =~ "subcommands you provided are invalid"
+      assert message =~ "unexpected"
+    end
   end
 
   describe "run/1" do
