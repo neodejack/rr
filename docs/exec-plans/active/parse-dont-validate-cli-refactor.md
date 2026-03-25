@@ -15,7 +15,7 @@ After implementation, maintainers will be able to read command behavior in isola
 ## Progress
 
 - [x] (2026-03-25 09:28Z) Drafted this ExecPlan from current repository state and aligned structure with `docs/PLAN.md` requirements.
-- [ ] Implement command action data types and parsing boundary modules in `lib/rr/cli/`.
+- [x] (2026-03-25 09:31Z) Implemented command action data types and parsing boundary modules in `lib/rr/cli/`, then verified the repository still formats, compiles, and passes tests.
 - [ ] Migrate `yo` and `list` commands to parse/execute split with compatibility wrappers.
 - [ ] Migrate `alias` and `kf` commands to mode-specific action structs and pure parse phase.
 - [ ] Migrate `login` and top-level `RR.CLI` dispatch/rendering to unified parse outcomes.
@@ -33,6 +33,9 @@ After implementation, maintainers will be able to read command behavior in isola
 
 - Observation: Several command modules currently emit help text as a side effect inside `parse_args/1`, which prevents parse logic from being pure.
   Evidence: `lib/rr/cli/commands/kf.ex`, `lib/rr/cli/commands/list.ex`, `lib/rr/cli/commands/yo.ex`, and `lib/rr/cli/commands/alias.ex` call `render_help/0` from `parse_args/1`.
+
+- Observation: Adding the shared CLI boundary modules did not require touching existing command callers yet, so Milestone 1 could land as a compile-only structural change.
+  Evidence: `mix compile --warnings-as-errors` and `mix test` both passed immediately after adding `RR.CLI.Help`, `RR.CLI.ParseError`, `RR.CLI.Invocation`, `RR.CLI.ArgParser`, and `RR.CLI.Command`.
 
 
 ## Decision Log
@@ -52,7 +55,7 @@ After implementation, maintainers will be able to read command behavior in isola
 
 ## Outcomes & Retrospective
 
-Implementation has not started yet; this section will be updated after each milestone and at completion. The expected outcome is unchanged CLI behavior with clearer command internals, parser-specific tests for argument handling, and a top-level `RR.CLI` flow that renders help and parse errors centrally.
+Milestone 1 is complete. The repository now has explicit shared types for help, parse errors, and parsed invocations, plus a command behavior and shared option parser wrapper. User-visible behavior is unchanged so far, which is the intended outcome for this first milestone because it reduces structural risk before migrating individual commands.
 
 
 ## Context and Orientation
@@ -281,3 +284,5 @@ This refactor must continue using existing service modules (`RR.Services.Auth`, 
 
 
 Revision note (2026-03-25): Created this plan to guide a full “parse then execute” refactor for CLI commands, because command modules currently mix argument parsing, help/error rendering, and execution logic. The plan resolves that ambiguity with milestone-by-milestone implementation and verifiable acceptance criteria.
+
+Revision note (2026-03-25): Updated the plan after completing Milestone 1 so progress, discoveries, and outcomes reflect the new shared CLI boundary modules and successful verification runs.
