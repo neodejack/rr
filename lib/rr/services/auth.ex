@@ -1,10 +1,10 @@
 defmodule RR.Services.Auth do
   @moduledoc false
   alias __MODULE__
+  alias RR.CLI.Output
   alias RR.Providers.AuthCache
   alias RR.Providers.Rancher
   alias RR.Settings
-  alias RR.Shell
 
   @type t :: %Auth{}
   @type error_reason :: :unauthorized | :unknown
@@ -76,9 +76,9 @@ defmodule RR.Services.Auth do
 
       if DateTime.before?(DateTime.utc_now(), expiration_ts) do
         if DateTime.diff(expiration_ts, DateTime.utc_now()) < 604_800 do
-          Shell.error("warning: rancher token will expire in less than 7 days.")
-          Shell.error("expiration time: #{DateTime.to_string(expiration_ts)}")
-          Shell.error("To input a valid token, run the command below\n\n    rr login\n")
+          Output.error("warning: rancher token will expire in less than 7 days.")
+          Output.error("expiration time: #{DateTime.to_string(expiration_ts)}")
+          Output.error("To input a valid token, run the command below\n\n    rr login\n")
         end
 
         true

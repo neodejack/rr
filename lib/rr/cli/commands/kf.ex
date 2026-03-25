@@ -1,8 +1,8 @@
-defmodule RR.KubeConfig do
+defmodule RR.CLI.Commands.Kf do
   @moduledoc false
+  alias RR.CLI.Output
   alias RR.Config.Paths
   alias RR.Services.Kubeconfigs
-  alias RR.Shell
 
   def run(args) do
     with {:ok, {switches, cluster_name_substring}} <- parse_args(args) do
@@ -53,7 +53,7 @@ defmodule RR.KubeConfig do
   end
 
   defp render_help do
-    Shell.info_stdout("""
+    Output.info_stdout("""
     obtain and manage kubeconfigs from rancher
 
     USAGE:
@@ -73,10 +73,10 @@ defmodule RR.KubeConfig do
   defp output_kubeconfig_path(kubconfig_path, true) do
     Paths.sh_template_path()
     |> EEx.eval_file(kf_path: kubconfig_path)
-    |> Shell.info_stdout()
+    |> Output.info_stdout()
   end
 
   defp output_kubeconfig_path(kubconfig_path, false) do
-    Shell.info_stdout(kubconfig_path)
+    Output.info_stdout(kubconfig_path)
   end
 end

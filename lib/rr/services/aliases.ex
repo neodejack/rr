@@ -1,7 +1,7 @@
 defmodule RR.Services.Aliases do
   @moduledoc false
+  alias RR.CLI.Output
   alias RR.Settings
-  alias RR.Shell
 
   def set(alias_name, full_name) do
     Settings.put_in([Access.key("alias", %{}), alias_name], full_name)
@@ -13,7 +13,7 @@ defmodule RR.Services.Aliases do
         alias_name
 
       full_name ->
-        Shell.info_stderr("resolving alias: #{alias_name} -> #{full_name} ")
+        Output.info_stderr("resolving alias: #{alias_name} -> #{full_name} ")
         full_name
     end
   end

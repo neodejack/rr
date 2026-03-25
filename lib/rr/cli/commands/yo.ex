@@ -1,13 +1,13 @@
-defmodule RR.Yo do
+defmodule RR.CLI.Commands.Yo do
   @moduledoc false
+  alias RR.CLI.Output
   alias RR.Config.Paths
-  alias RR.Shell
 
   def run(args) do
     with :ok <- parse_args(args) do
       Paths.yo_template_path()
       |> EEx.eval_file()
-      |> Shell.info_stdout()
+      |> Output.info_stdout()
 
       :ok
     end
@@ -45,7 +45,7 @@ defmodule RR.Yo do
   end
 
   defp render_help do
-    Shell.info_stdout("""
+    Output.info_stdout("""
     output shell integration for rr (works with both zsh and bash)
 
     USAGE:

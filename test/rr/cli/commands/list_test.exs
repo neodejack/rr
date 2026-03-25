@@ -1,9 +1,9 @@
-defmodule RR.ListTest do
+defmodule RR.CLI.Commands.ListTest do
   use ExUnit.Case, async: true
 
   import Mox
 
-  alias RR.List
+  alias RR.CLI.Commands.List
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock

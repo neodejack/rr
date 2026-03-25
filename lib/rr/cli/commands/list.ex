@@ -1,7 +1,7 @@
-defmodule RR.List do
+defmodule RR.CLI.Commands.List do
   @moduledoc false
+  alias RR.CLI.Output
   alias RR.Services.Clusters
-  alias RR.Shell
 
   def run(args) do
     with :ok <- parse_args(args),
@@ -46,7 +46,7 @@ defmodule RR.List do
   end
 
   defp render_help do
-    Shell.info_stdout("""
+    Output.info_stdout("""
     list rancher clusters
 
     USAGE:
@@ -82,6 +82,6 @@ defmodule RR.List do
           [header, separator | data]
       end
 
-    Shell.info_stdout(Enum.join(lines, "\n"))
+    Output.info_stdout(Enum.join(lines, "\n"))
   end
 end

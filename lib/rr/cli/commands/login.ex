@@ -1,12 +1,12 @@
-defmodule RR.Login do
+defmodule RR.CLI.Commands.Login do
   @moduledoc """
   three finite state: [:no_auth_config, :invalid_auth_config, :valid_auth_config]
   login/1 function will pattern match on these three and proceed to respective actions
 
   """
+  alias RR.CLI.Output
   alias RR.Providers.Rancher
   alias RR.Services.Auth
-  alias RR.Shell
 
   def run(args) do
     with :ok <- parse_args(args),
@@ -44,7 +44,7 @@ defmodule RR.Login do
     case Auth.check_auth_validity(auth) do
       {:ok, auth} ->
         Auth.put_auth(auth)
-        Shell.info_stdout("token successfully validated and saved")
+        Output.info_stdout("token successfully validated and saved")
         :ok
 
       {:error, :unauthorized, reason} ->

@@ -2,9 +2,9 @@ defmodule RR.Providers.Rancher.Impl do
   @moduledoc false
   @behaviour RR.Providers.Rancher
 
+  alias RR.CLI.Output
   alias RR.Services.Auth
   alias RR.Services.Clusters.Cluster
-  alias RR.Shell
 
   @impl true
   def get_clusters(%Auth{} = auth) do
@@ -21,7 +21,7 @@ defmodule RR.Providers.Rancher.Impl do
           end
 
         non_200_resp ->
-          Shell.error(inspect(non_200_resp))
+          Output.error(inspect(non_200_resp))
           {:error, "http error for #{url}"}
       end
     else
