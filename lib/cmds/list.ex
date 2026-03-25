@@ -1,11 +1,13 @@
 defmodule RR.List do
   @moduledoc false
-  alias External.RancherHttpClient
+  alias RR.Config.Auth
+  alias RR.Providers.Rancher
   alias RR.Shell
 
   def run(args) do
     with :ok <- parse_args(args),
-         {:ok, clusters} <- RancherHttpClient.get_clusters() do
+         {:ok, auth} <- Auth.ensure_valid_auth(),
+         {:ok, clusters} <- Rancher.get_clusters(auth) do
       clusters
       |> to_rows()
       |> render_table()

@@ -3,11 +3,12 @@ defmodule RR.LoginTest do
 
   import Mox
 
-  alias External.Config.Mock, as: ConfigMock
-  alias External.RancherHttpClient.Mock, as: RancherMock
   alias RR.Config
   alias RR.Config.Auth
   alias RR.Login
+  alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
+  alias RR.Providers.Rancher.Mock, as: RancherMock
+  alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
 
   @day_ms 86_400_000
   @hostname "https://rancher.example"
@@ -18,21 +19,30 @@ defmodule RR.LoginTest do
   setup :verify_on_exit!
 
   setup do
-    store = start_supervised!({Agent, fn -> %{} end})
+    store = start_supervised!({Agent, fn -> %{} end}, id: make_ref())
+    cache = start_supervised!({Agent, fn -> %{} end}, id: make_ref())
 
-    stub(ConfigMock, :read, fn ->
+    stub(SettingsStoreMock, :read, fn ->
       Agent.get(store, & &1)
     end)
 
-    stub(ConfigMock, :write, fn config ->
+    stub(SettingsStoreMock, :write, fn config ->
       Agent.update(store, fn _ -> config end)
       :ok
     end)
 
-    clear_auth_cache()
+    stub(AuthCacheMock, :get, fn key ->
+      Agent.get(cache, fn entries ->
+        case Map.fetch(entries, key) do
+          {:ok, valid?} -> {:hit, valid?}
+          :error -> :miss
+        end
+      end)
+    end)
 
-    on_exit(fn ->
-      clear_auth_cache()
+    stub(AuthCacheMock, :put, fn key, valid? ->
+      Agent.update(cache, &Map.put(&1, key, valid?))
+      :ok
     end)
 
     :ok
@@ -103,11 +113,7 @@ defmodule RR.LoginTest do
       assert msg =~ "token validation failed"
       assert result =~ "rancher hostname"
       assert Config.get_auth() == {nil, nil}
-
-      case :ets.whereis(:rr_auth_cache) do
-        :undefined -> :ok
-        tid -> assert :ets.lookup(tid, {@hostname, @token_valid}) == []
-      end
+      assert :miss == AuthCacheMock.get({@hostname, @token_valid})
     end
   end
 
@@ -148,12 +154,5 @@ defmodule RR.LoginTest do
        created_ts: now_ms,
        ttl: 10 * @day_ms
      }}
-  end
-
-  defp clear_auth_cache do
-    case :ets.whereis(:rr_auth_cache) do
-      :undefined -> :ok
-      _tid -> :ets.delete(:rr_auth_cache)
-    end
   end
 end

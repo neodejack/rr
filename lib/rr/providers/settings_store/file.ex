@@ -1,6 +1,6 @@
-defmodule External.Config.Impl do
+defmodule RR.Providers.SettingsStore.File do
   @moduledoc false
-  @behaviour External.Config
+  @behaviour RR.Providers.SettingsStore
 
   @config "config.json"
 

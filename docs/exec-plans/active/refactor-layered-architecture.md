@@ -2,6 +2,8 @@
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
+This repository stores the ExecPlan guidance in `docs/PLAN.md` rather than `docs/PLANS.md`. Maintain this document in accordance with `docs/PLAN.md`.
+
 
 ## Purpose / Big Picture
 
@@ -21,7 +23,7 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 
 ## Progress
 
-- [ ] Milestone 1: Providers layer (rename External.* → RR.Providers.*, extract AuthCache provider)
+- [x] (2026-03-25 07:58Z) Milestone 1: Providers layer completed. Moved this plan to `docs/exec-plans/active/`, replaced `External.*` with `RR.Providers.*`, added `RR.Providers.AuthCache`, updated tests to use provider mocks, and verified with `mix compile --warnings-as-errors`, `mix test`, `mix format --check-formatted`, and `rg "External\." lib test config`.
 - [ ] Milestone 2: Config layer (extract RR.Config.Paths from RR.Config)
 - [ ] Milestone 3: Services layer (create RR.Services.Auth, Clusters, Kubeconfigs, Aliases; move business logic out of commands)
 - [ ] Milestone 4: CLI layer (restructure commands into RR.CLI.*, create RR.CLI.Output)
@@ -30,7 +32,11 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 
 ## Surprises & Discoveries
 
-(None yet.)
+- Observation: The repository guidance file is `docs/PLAN.md`, not `docs/PLANS.md` as referenced by the skill and the original draft of this plan.
+  Evidence: `find docs -maxdepth 3 -type f | sort` returned `docs/PLAN.md` and `docs/exec-plans/refactor-layered-architecture.md`.
+
+- Observation: Replacing the ETS cache with a mocked provider changed the tests' setup requirements. `start_supervised!/1` used the default `Agent` child id, so repeated setup blocks collided until each agent received a unique `id`.
+  Evidence: `mix test` initially failed with `bad child specification, got: {:already_started, ...}` in `test/rr/config/auth_test.exs` and `test/rr/login_test.exs`.
 
 
 ## Decision Log
@@ -47,10 +53,14 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
   Rationale: The current `External.RancherHttpClient.Impl.rancher_base_req/0` calls `Auth.ensure_valid_auth()` inside itself, meaning the Provider reaches up into the Service layer. This creates a circular dependency (Provider → Auth → Provider). After refactoring, Services load auth and pass it down.
   Date/Author: 2026-03-25
 
+- Decision: Treat `docs/PLAN.md` as the repository-local source of truth for ExecPlan maintenance and note the naming discrepancy inside this plan instead of renaming files mid-refactor.
+  Rationale: The repository already checks in `docs/PLAN.md`, and changing the plan-guidance filename would add unrelated churn to an architecture refactor. Recording the discrepancy keeps the plan self-consistent without expanding scope.
+  Date/Author: 2026-03-25
+
 
 ## Outcomes & Retrospective
 
-(To be filled upon completion.)
+Milestone 1 is complete. The provider boundary now lives entirely under `lib/rr/providers/`, the Rancher provider accepts auth explicitly instead of loading it internally, the auth cache is abstracted behind a behaviour, and the test suite still passes with provider mocks. The remaining work is structural: extract config paths and settings, move business logic into services, then shrink the CLI modules down to argument parsing and rendering.
 
 
 ## Context and Orientation
@@ -65,6 +75,16 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
       rr/
         application.ex                      # RR.Application — OTP app start, optionally calls RR.main()
         constants.ex                        # RR.Constants — cli_name atom and string
+        providers/
+          auth_cache.ex                     # RR.Providers.AuthCache — cache behaviour
+          auth_cache/
+            ets.ex                          # RR.Providers.AuthCache.ETS — ETS-backed cache provider
+          rancher.ex                        # RR.Providers.Rancher — Rancher API behaviour
+          rancher/
+            impl.ex                         # RR.Providers.Rancher.Impl — Req-based HTTP calls
+          settings_store.ex                 # RR.Providers.SettingsStore — settings persistence behaviour
+          settings_store/
+            file.ex                         # RR.Providers.SettingsStore.File — JSON settings file provider
         shell.ex                            # RR.Shell — info_stdout/1, info_stderr/1, error/1
       config/
         auth.ex                             # RR.Config.Auth — %Auth{} struct, get/put auth, validate token, ETS cache
@@ -74,14 +94,6 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
         list.ex                             # RR.List — arg parsing + fetch clusters + render table
         alias.ex                            # RR.Alias — arg parsing + alias set/resolve/list
         yo.ex                               # RR.Yo — arg parsing + render shell integration template
-      external/
-        config.ex                           # External.Config — behaviour for config persistence (read/write)
-        config/
-          impl.ex                           # External.Config.Impl — reads/writes ~/.rr/config.json
-        rancher_http_client.ex              # External.RancherHttpClient — behaviour for Rancher API
-        rancher_http_client/
-          impl.ex                           # External.RancherHttpClient.Impl — Req-based HTTP calls
-
     test/
       test_helper.exs                       # defines Mox mocks, starts ExUnit
       rr/
@@ -100,9 +112,9 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 
 ### How mocking works
 
-All external boundaries use a behaviour module with a delegating public function and a private `impl/0` function that resolves to either `Impl` or `Mock` based on the `:external_bound` app env. In test config, `:external_bound` is set to `Mock`. In `test/test_helper.exs`, `Mox.defmock/2` creates mock modules for each behaviour. Tests use `Mox.expect/3` and `Mox.stub/3` to control behaviour.
+All provider boundaries use a behaviour module with a delegating public function and a private `impl/0` function that resolves to either `Impl`, `File`, `ETS`, or `Mock` based on the `:external_bound` app env. In test config, `:external_bound` is set to `Mock`. In `test/test_helper.exs`, `Mox.defmock/2` creates mock modules for each provider behaviour. Tests use `Mox.expect/3` and `Mox.stub/3` to control behaviour.
 
-The current app env key is a single `:external_bound` atom shared by all providers. Each provider constructs its impl module name like: `Module.concat([RancherHttpClient, Application.get_env(:rr, :external_bound, Impl)])`. This means all providers switch between Impl and Mock together.
+The current app env key is a single `:external_bound` atom shared by all providers. Each provider constructs its impl module name from its own namespace, for example `Module.concat([RR.Providers.Rancher, Application.get_env(:rr, :external_bound, Impl)])`. This means all providers switch between production implementations and mocks together.
 
 ### Templates
 
@@ -312,7 +324,7 @@ Run these after completing each milestone. Expected result: zero warnings, zero 
 
 To verify no stale External references remain after Milestone 1:
 
-    grep -r "External\." lib/ test/ config/
+    rg "External\." lib test config
 
 Expected output: no matches.
 
@@ -385,3 +397,6 @@ In `lib/rr/providers/auth_cache.ex`, define:
       @callback put(key :: term(), valid? :: boolean()) :: :ok
       @callback clear() :: :ok
     end
+
+
+Revision note (2026-03-25): Activated this plan under `docs/exec-plans/active/` and updated the document after completing Milestone 1 so the recorded file paths, verification commands, discoveries, and decisions match the repository state.

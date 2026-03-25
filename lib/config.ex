@@ -1,6 +1,8 @@
 defmodule RR.Config do
   @moduledoc false
 
+  alias RR.Providers.SettingsStore
+
   def put(key, value) do
     read()
     |> Map.put(key, value)
@@ -21,9 +23,9 @@ defmodule RR.Config do
     Map.get(read(), key)
   end
 
-  defp read, do: External.Config.read()
+  defp read, do: SettingsStore.read()
 
-  defp write(config), do: External.Config.write(config)
+  defp write(config), do: SettingsStore.write(config)
 
   def home_dir do
     override_dir = System.get_env("RR_HOME")

@@ -5,12 +5,13 @@ defmodule RR.Login do
 
   """
   alias RR.Config.Auth
+  alias RR.Providers.Rancher
   alias RR.Shell
 
   def run(args) do
     with :ok <- parse_args(args),
          {:ok, auth} <- Auth.ensure_valid_auth(),
-         {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth),
+         {:ok, token_info} <- Rancher.get_token_info(auth),
          true <-
            Owl.IO.confirm(
              message: [

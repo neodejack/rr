@@ -1,16 +1,16 @@
-defmodule External.RancherHttpClient.Impl do
+defmodule RR.Providers.Rancher.Impl do
   @moduledoc false
-  @behaviour External.RancherHttpClient
+  @behaviour RR.Providers.Rancher
 
   alias RR.Config.Auth
   alias RR.KubeConfig
   alias RR.Shell
 
   @impl true
-  def get_clusters do
+  def get_clusters(%Auth{} = auth) do
     url = "/v3/clusters"
 
-    with {:ok, req} <- rancher_base_req(),
+    with {:ok, req} <- rancher_base_req(auth),
          {:ok, resp} <- Req.get(req, url: url) do
       case resp do
         %Req.Response{status: 200, body: body} ->
@@ -27,17 +27,14 @@ defmodule External.RancherHttpClient.Impl do
     else
       {:error, %Req.TransportError{} = err} ->
         {:error, "http request failed for #{url}: #{Exception.message(err)}"}
-
-      {:error, _} = error ->
-        error
     end
   end
 
   @impl true
-  def get_kubeconfig(%KubeConfig{id: id} = kubeconfig) do
+  def get_kubeconfig(%Auth{} = auth, %KubeConfig{id: id} = kubeconfig) do
     url = "/v3/clusters/#{id}?action=generateKubeconfig"
 
-    with {:ok, req} <- rancher_base_req(),
+    with {:ok, req} <- rancher_base_req(auth),
          {:ok, resp} <- Req.post(req, url: url) do
       case resp do
         %Req.Response{status: 200} ->
@@ -56,9 +53,6 @@ defmodule External.RancherHttpClient.Impl do
     else
       {:error, %Req.TransportError{} = err} ->
         {:error, "http request failed for #{url}: #{Exception.message(err)}"}
-
-      {:error, _} = error ->
-        error
     end
   end
 
@@ -90,23 +84,11 @@ defmodule External.RancherHttpClient.Impl do
     end
   end
 
-  defp rancher_base_req do
-    case Auth.ensure_valid_auth() do
-      {:ok, auth} ->
-        {:ok,
-         Req.new(
-           base_url: auth.rancher_hostname,
-           auth: {:bearer, auth.rancher_token}
-         )}
-
-      {:error, :unauthorized, err} ->
-        {:error, err}
-
-      {:error, :unknown, err} ->
-        {:error, err}
-
-      {:error, _} = error ->
-        error
-    end
+  defp rancher_base_req(%Auth{} = auth) do
+    {:ok,
+     Req.new(
+       base_url: auth.rancher_hostname,
+       auth: {:bearer, auth.rancher_token}
+     )}
   end
 end

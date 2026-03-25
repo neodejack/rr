@@ -3,37 +3,49 @@ defmodule RR.Config.AuthTest do
 
   import Mox
 
-  alias External.Config.Mock
   alias RR.Config
   alias RR.Config.Auth
+  alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
+  alias RR.Providers.Rancher.Mock, as: RancherMock
+  alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
 
   setup :verify_on_exit!
 
   setup do
-    store = start_supervised!({Agent, fn -> %{} end})
+    store = start_supervised!({Agent, fn -> %{} end}, id: make_ref())
+    cache = start_supervised!({Agent, fn -> %{} end}, id: make_ref())
 
-    stub(Mock, :read, fn ->
+    stub(SettingsStoreMock, :read, fn ->
       Agent.get(store, & &1)
     end)
 
-    stub(Mock, :write, fn config ->
+    stub(SettingsStoreMock, :write, fn config ->
       Agent.update(store, fn _ -> config end)
       :ok
     end)
 
-    clear_auth_cache()
-    Config.put_auth({"https://rancher.example", "token-123:abc"})
-
-    on_exit(fn ->
-      clear_auth_cache()
+    stub(AuthCacheMock, :get, fn key ->
+      Agent.get(cache, fn entries ->
+        case Map.fetch(entries, key) do
+          {:ok, valid?} -> {:hit, valid?}
+          :error -> :miss
+        end
+      end)
     end)
+
+    stub(AuthCacheMock, :put, fn key, valid? ->
+      Agent.update(cache, &Map.put(&1, key, valid?))
+      :ok
+    end)
+
+    Config.put_auth({"https://rancher.example", "token-123:abc"})
 
     :ok
   end
 
   describe "ensure_valid_auth/0" do
     test "internet connection error" do
-      expect(External.RancherHttpClient.Mock, :get_token_info, fn _ ->
+      expect(RancherMock, :get_token_info, fn _ ->
         {:error, :unknown, inspect(%Req.TransportError{reason: :nxdomain})}
       end)
 
@@ -42,19 +54,12 @@ defmodule RR.Config.AuthTest do
     end
 
     test "uses cached auth to avoid re-validating the token" do
-      expect(External.RancherHttpClient.Mock, :get_token_info, 1, fn _ ->
+      expect(RancherMock, :get_token_info, 1, fn _ ->
         valid_token_info()
       end)
 
       assert {:ok, _} = Auth.ensure_valid_auth()
       assert {:ok, _} = Auth.ensure_valid_auth()
-    end
-  end
-
-  defp clear_auth_cache do
-    case :ets.whereis(:rr_auth_cache) do
-      :undefined -> :ok
-      _tid -> :ets.delete(:rr_auth_cache)
     end
   end
 

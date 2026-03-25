@@ -2,9 +2,9 @@ defmodule RR.Config.Auth do
   @moduledoc false
   alias __MODULE__
   alias RR.Config
+  alias RR.Providers.AuthCache
+  alias RR.Providers.Rancher
   alias RR.Shell
-
-  @auth_cache_table :rr_auth_cache
 
   @type t :: %Auth{}
 
@@ -44,7 +44,7 @@ defmodule RR.Config.Auth do
       "rancher token is invalid has expired. To input a valid token, run the command below\n    rr login"
 
     with :miss <- cached_auth_result(auth),
-         {:ok, token_info} <- External.RancherHttpClient.get_token_info(auth) do
+         {:ok, token_info} <- Rancher.get_token_info(auth) do
       result = token_valid?(token_info)
       cache_auth_result(auth, result)
 
@@ -94,37 +94,14 @@ defmodule RR.Config.Auth do
   end
 
   defp cached_auth_result(auth) do
-    ensure_auth_cache_table()
-
-    case :ets.lookup(@auth_cache_table, auth_cache_key(auth)) do
-      [{_key, valid?}] when is_boolean(valid?) -> {:hit, valid?}
-      _ -> :miss
-    end
+    AuthCache.get(auth_cache_key(auth))
   end
 
   defp cache_auth_result(auth, result) when is_boolean(result) do
-    ensure_auth_cache_table()
-    :ets.insert(@auth_cache_table, {auth_cache_key(auth), result})
-    :ok
+    AuthCache.put(auth_cache_key(auth), result)
   end
 
   defp auth_cache_key(%Auth{rancher_hostname: hostname, rancher_token: token}) do
     {hostname, token}
-  end
-
-  defp ensure_auth_cache_table do
-    case :ets.whereis(@auth_cache_table) do
-      :undefined ->
-        try do
-          :ets.new(@auth_cache_table, [:named_table, :set, :public, read_concurrency: true])
-        rescue
-          ArgumentError -> :ok
-        end
-
-      _tid ->
-        :ok
-    end
-
-    :ok
   end
 end
