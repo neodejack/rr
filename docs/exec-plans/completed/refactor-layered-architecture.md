@@ -27,7 +27,7 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 - [x] (2026-03-25 08:05Z) Milestone 2: Config layer completed. Renamed `RR.Config` to `RR.Settings`, added `RR.Config.Paths` for home, settings, kubeconfig, and template paths, updated callers and tests, and verified with `mix compile --warnings-as-errors`, `mix test`, and `mix format --check-formatted`.
 - [x] (2026-03-25 08:12Z) Milestone 3: Services layer completed. Added `RR.Services.Auth`, `RR.Services.Clusters`, `RR.Services.Kubeconfigs`, and `RR.Services.Aliases`, removed `RR.Config.Auth`, rewired the existing command modules to call services, and verified with `mix compile --warnings-as-errors`, `mix test`, and `mix format --check-formatted`.
 - [x] (2026-03-25 08:15Z) Milestone 4: CLI layer completed. Moved the router to `RR.CLI`, renamed `RR.Shell` to `RR.CLI.Output`, moved command modules and tests into the `RR.CLI.*` namespace, removed `RR.Constants`, and verified with `mix compile --warnings-as-errors`, `mix test`, `mix format --check-formatted`, and `rg -n "RR\\.Shell|RR\\.KubeConfig\\b|RR\\.Login\\b|RR\\.List\\b|RR\\.Alias\\b|RR\\.Yo\\b|RR\\.Constants" lib test`.
-- [ ] Milestone 5: Cleanup (remove old files, inline RR.Constants, final validation)
+- [x] (2026-03-25 08:18Z) Milestone 5: Cleanup completed. Removed the leftover empty `lib/external/` directories, confirmed `lib/external`, `lib/cmds`, and `lib/config` are gone, and verified with `mix compile --warnings-as-errors`, `mix format --check-formatted`, `mix test`, and `MIX_ENV=prod mix compile`.
 
 
 ## Surprises & Discoveries
@@ -46,6 +46,9 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 
 - Observation: Moving the command modules and output module under `RR.CLI.*` did not require assertion changes in the tests. The test suite continued to pass after updating only module names, aliases, and file locations.
   Evidence: `mix test` passed immediately after the namespace move once the files were reformatted.
+
+- Observation: Removing the old modules was not enough to satisfy the cleanup milestone because the empty `lib/external/` directory tree still remained on disk.
+  Evidence: `ls lib/external` succeeded after Milestone 4 and showed the empty `config` and `rancher_http_client` directories.
 
 
 ## Decision Log
@@ -85,7 +88,7 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 
 ## Outcomes & Retrospective
 
-Milestones 1 through 4 are complete. The provider boundary lives under `lib/rr/providers/`, persisted settings access is isolated in `RR.Settings`, filesystem path logic is centralized in `RR.Config.Paths`, business logic lives in `RR.Services.*`, and the CLI router and commands now live in `RR.CLI.*`. The remaining work is the final cleanup and validation pass.
+The refactor is complete. The codebase now follows the intended layered direction: `RR.CLI.*` depends on `RR.Services.*`, services depend on `RR.Providers.*` and `RR.Config.Paths`, and settings persistence is isolated in `RR.Settings`. The legacy `External.*`, `RR.Config.Auth`, `RR.Shell`, command-module namespace, and unused constants module are gone. Validation passed with `mix compile --warnings-as-errors`, `mix format --check-formatted`, and `mix test`. An additional `MIX_ENV=prod mix compile` also succeeded; its warnings came from dependencies (`hpax`, `mint`, `finch`, `burrito`), not from this repository.
 
 
 ## Context and Orientation
@@ -378,7 +381,7 @@ Expected output: "No such file or directory".
 
 After all milestones are complete:
 
-1. `mix test` — all existing tests pass (currently 10 tests across 5 test files). No test assertions change; only module references and aliases are updated.
+1. `mix test` — all existing tests pass (currently 11 tests across 5 test files). No behavioral assertions changed; only module references, aliases, and file paths were updated where needed.
 2. `mix compile --warnings-as-errors` — zero warnings.
 3. `mix format --check-formatted` — clean.
 4. The CLI behavior is identical: `rr login`, `rr kf <name>`, `rr list`, `rr alias`, `rr yo` all work exactly as before.
@@ -436,3 +439,4 @@ Revision note (2026-03-25): Activated this plan under `docs/exec-plans/active/` 
 Revision note (2026-03-25): Updated the plan after Milestone 2 to reflect the `RR.Settings` / `RR.Config.Paths` split, document the decision to keep `:external_bound`, and correct the stale-reference verification to allow the still-temporary `RR.Config.Auth` module.
 Revision note (2026-03-25): Updated the plan after Milestone 3 to reflect the new `RR.Services.*` modules, the removal of `RR.Config.Auth`, and the fact that the old command modules now act as wrappers pending the CLI namespace move in Milestone 4.
 Revision note (2026-03-25): Updated the plan after Milestone 4 to reflect the `RR.CLI.*` namespace move, the `RR.CLI.Output` rename, the relocated tests, and the removal of the unused `RR.Constants` module.
+Revision note (2026-03-25): Updated the plan after Milestone 5 with the final cleanup results, the full validation evidence, and the final retrospective before archiving the plan under `docs/exec-plans/completed/`.
