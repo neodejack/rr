@@ -4,13 +4,51 @@ defmodule RR.CLI.Commands.Login do
   login/1 function will pattern match on these three and proceed to respective actions
 
   """
+  @behaviour RR.CLI.Command
+
+  alias RR.CLI.Help
   alias RR.CLI.Output
+  alias RR.CLI.ParseError
   alias RR.Providers.Rancher
   alias RR.Services.Auth
 
+  defstruct []
+
   def run(args) do
-    with :ok <- parse_args(args),
-         {:ok, auth} <- Auth.ensure_valid_auth(),
+    case parse(args) do
+      {:ok, %__MODULE__{} = action} ->
+        execute(action)
+
+      {:ok, %Help{}} ->
+        Output.info_stdout(help())
+        :ok
+
+      {:error, %ParseError{message: message}} ->
+        {:error, message}
+    end
+  end
+
+  @impl true
+  def parse(args) do
+    case args do
+      [] ->
+        {:ok, %__MODULE__{}}
+
+      [flag] when flag in ["--help", "-h"] ->
+        {:ok, %Help{module: __MODULE__}}
+
+      _ ->
+        {:error,
+         %ParseError{
+           module: __MODULE__,
+           message: "rr login command doesn't take any args\nyou provided: #{Enum.join(args, " ")}"
+         }}
+    end
+  end
+
+  @impl true
+  def execute(%__MODULE__{}) do
+    with {:ok, auth} <- Auth.ensure_valid_auth(),
          {:ok, token_info} <- Rancher.get_token_info(auth),
          true <-
            Owl.IO.confirm(
@@ -28,14 +66,17 @@ defmodule RR.CLI.Commands.Login do
     end
   end
 
-  defp parse_args(args) do
-    case args do
-      [] ->
-        :ok
+  @impl true
+  def summary, do: "key in the auth info of rancher cluster"
 
-      _ ->
-        {:error, "rr login command doesn't take any args\nyou provided: #{Enum.join(args, " ")}"}
-    end
+  @impl true
+  def help do
+    """
+    key in the auth info of rancher cluster
+
+    USAGE:
+      rr login
+    """
   end
 
   defp login do

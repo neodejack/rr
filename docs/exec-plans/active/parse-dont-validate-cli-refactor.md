@@ -18,7 +18,7 @@ After implementation, maintainers will be able to read command behavior in isola
 - [x] (2026-03-25 09:31Z) Implemented command action data types and parsing boundary modules in `lib/rr/cli/`, then verified the repository still formats, compiles, and passes tests.
 - [x] (2026-03-25 09:35Z) Migrated `yo` and `list` to explicit `parse/1` and `execute/1`, added parser-focused tests, and confirmed the full test suite still passes.
 - [x] (2026-03-25 09:44Z) Migrated `alias` and `kf` to typed actions and pure parse functions, added new `alias` tests plus real `kf` coverage, and verified the full suite again.
-- [ ] Migrate `login` and top-level `RR.CLI` dispatch/rendering to unified parse outcomes.
+- [x] (2026-03-25 09:56Z) Migrated `login` and `RR.CLI` to unified parse outcomes, added CLI-level dispatcher tests, and manually verified central help/error rendering with `mix run --no-start`.
 - [ ] Add parser-focused tests and run full validation (`mix format --check-formatted`, `mix compile --warnings-as-errors`, `mix test`).
 - [ ] Record completion outcomes and move this plan to `docs/exec-plans/completed/`.
 
@@ -46,6 +46,12 @@ After implementation, maintainers will be able to read command behavior in isola
 - Observation: `kf` execution-path tests can avoid `kubectl` and live Rancher dependencies by exercising the overwrite path (`--new`) with mocked providers and a temporary `RR_HOME`.
   Evidence: `mix test test/rr/cli/commands/kf_test.exs` passed while writing a kubeconfig fixture under a temporary directory and rendering `export KUBECONFIG=...` from the real shell template.
 
+- Observation: Manual `RR.CLI.run/1` checks must use `mix run --no-start` in this repository, otherwise `RR.Application.start/2` triggers `RR.main/0` and prints root help before the probe executes.
+  Evidence: `mix run -e 'IO.inspect(RR.CLI.run([...]))'` printed startup help first, while `mix run --no-start -e 'IO.inspect(RR.CLI.run([...]))'` produced the expected direct command output.
+
+- Observation: A manual `alias --list` probe in the default non-test environment is blocked by an existing provider-resolution issue unrelated to this refactor.
+  Evidence: `RR_HOME=/tmp/rr-manual-check mix run --no-start -e 'IO.inspect(RR.CLI.run(["alias", "--list"]))'` failed with `UndefinedFunctionError` for `RR.Providers.SettingsStore.Impl.read/0`.
+
 
 ## Decision Log
 
@@ -69,6 +75,10 @@ After implementation, maintainers will be able to read command behavior in isola
   Rationale: The command has two mutually exclusive behaviors, and separate action types let `execute/1` pattern match each mode without runtime branching on options or missing fields.
   Date/Author: 2026-03-25 / Codex
 
+- Decision: Make `login` recognize `--help` and `-h` as explicit help outcomes once top-level rendering moved into `RR.CLI`.
+  Rationale: This keeps the command compatible with the shared parse/help model and avoids unreachable wrapper branches under `--warnings-as-errors`.
+  Date/Author: 2026-03-25 / Codex
+
 
 ## Outcomes & Retrospective
 
@@ -77,6 +87,8 @@ Milestone 1 is complete. The repository now has explicit shared types for help, 
 Milestone 2 is also complete. `yo` and `list` now expose pure `parse/1` functions and action-only `execute/1` functions, while their legacy `run/1` entrypoints still preserve current help and error rendering. Parser-specific tests now cover help requests and invalid positional arguments for these commands.
 
 Milestone 3 is complete. `alias` now parses into distinct list and set actions, and `kf` now parses its cluster and flags into a single trusted action struct before any side effects begin. Tests now cover invalid `alias`/`kf` argument combinations at parse time plus one real `kf` execution path that exercises kubeconfig output generation without external connectivity.
+
+Milestone 4 is complete. `login` now follows the same parse/execute contract as the other commands, and `RR.CLI` is now the central parser/dispatcher that renders root help, command help, parse errors, and version output. CLI-level tests now cover command invocation parsing, centralized help rendering, centralized parse-error rendering, and version output. Manual no-start probes confirmed the new top-level behavior for `list unexpected`, `yo --help`, and `unknown`.
 
 
 ## Context and Orientation
@@ -311,3 +323,5 @@ Revision note (2026-03-25): Updated the plan after completing Milestone 1 so pro
 Revision note (2026-03-25): Updated the plan after completing Milestone 2 to document the `yo` and `list` migration, the temporary wrapper strategy, and the parser-focused verification coverage now in place.
 
 Revision note (2026-03-25): Updated the plan after completing Milestone 3 to record the typed `alias` and `kf` action design, the temporary wrapper warning fix, and the new execution-path testing strategy for kubeconfig output.
+
+Revision note (2026-03-25): Updated the plan after completing Milestone 4 to capture the centralized `RR.CLI` parse/render flow, the new login help behavior, and the manual-verification caveats around `mix run --no-start` and the existing settings-store provider issue.
