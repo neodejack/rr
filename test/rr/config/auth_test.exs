@@ -3,10 +3,10 @@ defmodule RR.Config.AuthTest do
 
   import Mox
 
-  alias RR.Config.Auth
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
+  alias RR.Services.Auth
   alias RR.Settings
 
   setup :verify_on_exit!

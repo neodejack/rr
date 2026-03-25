@@ -3,11 +3,11 @@ defmodule RR.LoginTest do
 
   import Mox
 
-  alias RR.Config.Auth
   alias RR.Login
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
+  alias RR.Services.Auth
   alias RR.Settings
 
   @day_ms 86_400_000

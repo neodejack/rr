@@ -4,8 +4,8 @@ defmodule RR.Login do
   login/1 function will pattern match on these three and proceed to respective actions
 
   """
-  alias RR.Config.Auth
   alias RR.Providers.Rancher
+  alias RR.Services.Auth
   alias RR.Shell
 
   def run(args) do
@@ -41,7 +41,7 @@ defmodule RR.Login do
   defp login do
     auth = prompt()
 
-    case Auth.check_auth_validity_from_ets_or_rancher(auth) do
+    case Auth.check_auth_validity(auth) do
       {:ok, auth} ->
         Auth.put_auth(auth)
         Shell.info_stdout("token successfully validated and saved")

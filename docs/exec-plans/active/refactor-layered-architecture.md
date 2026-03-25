@@ -25,7 +25,7 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 
 - [x] (2026-03-25 07:58Z) Milestone 1: Providers layer completed. Moved this plan to `docs/exec-plans/active/`, replaced `External.*` with `RR.Providers.*`, added `RR.Providers.AuthCache`, updated tests to use provider mocks, and verified with `mix compile --warnings-as-errors`, `mix test`, `mix format --check-formatted`, and `rg "External\." lib test config`.
 - [x] (2026-03-25 08:05Z) Milestone 2: Config layer completed. Renamed `RR.Config` to `RR.Settings`, added `RR.Config.Paths` for home, settings, kubeconfig, and template paths, updated callers and tests, and verified with `mix compile --warnings-as-errors`, `mix test`, and `mix format --check-formatted`.
-- [ ] Milestone 3: Services layer (create RR.Services.Auth, Clusters, Kubeconfigs, Aliases; move business logic out of commands)
+- [x] (2026-03-25 08:12Z) Milestone 3: Services layer completed. Added `RR.Services.Auth`, `RR.Services.Clusters`, `RR.Services.Kubeconfigs`, and `RR.Services.Aliases`, removed `RR.Config.Auth`, rewired the existing command modules to call services, and verified with `mix compile --warnings-as-errors`, `mix test`, and `mix format --check-formatted`.
 - [ ] Milestone 4: CLI layer (restructure commands into RR.CLI.*, create RR.CLI.Output)
 - [ ] Milestone 5: Cleanup (remove old files, inline RR.Constants, final validation)
 
@@ -40,6 +40,9 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 
 - Observation: The original Milestone 2 stale-reference check was too strict for the actual migration sequence. `RR.Config.Auth` still exists until Milestone 3, so the verification must allow that module while confirming that generic settings and path lookups moved to `RR.Settings` and `RR.Config.Paths`.
   Evidence: `rg "RR\.Config\." lib test | grep -v "RR\.Config\.Paths"` still matched `RR.Config.Auth` after the settings/path refactor.
+
+- Observation: `RR.Services.Kubeconfigs.fetch/2` now asks `RR.Services.Auth` for valid auth before listing clusters, and `RR.Services.Clusters.list/0` also validates auth internally. The second check is satisfied from the auth cache, so this preserves the planned service boundaries without adding another Rancher token lookup.
+  Evidence: `mix test` remained green after the service split, including `test/rr/config/auth_test.exs`, which still asserts that repeated auth validation uses the cache.
 
 
 ## Decision Log
@@ -68,10 +71,14 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
   Rationale: Auth logic is still a service concern that will move wholesale in the next milestone. Keeping `RR.Config.Auth` temporarily avoids a half-step where auth helpers bounce between modules before the services layer exists.
   Date/Author: 2026-03-25
 
+- Decision: Keep the old command module names (`RR.KubeConfig`, `RR.Login`, `RR.List`, `RR.Alias`, `RR.Yo`) in Milestone 3 and make them thin wrappers over services, deferring the namespace move to `RR.CLI.*` until Milestone 4.
+  Rationale: The service extraction and the CLI namespace move are separate milestones in this plan. Keeping the public command modules stable during the service split reduces churn and keeps the verification surface smaller.
+  Date/Author: 2026-03-25
+
 
 ## Outcomes & Retrospective
 
-Milestones 1 and 2 are complete. The provider boundary now lives entirely under `lib/rr/providers/`, persisted settings access is isolated in `RR.Settings`, and filesystem path logic is centralized in `RR.Config.Paths`. The remaining work is to move business logic into services, then shrink the CLI modules down to argument parsing and rendering.
+Milestones 1 through 3 are complete. The provider boundary now lives under `lib/rr/providers/`, persisted settings access is isolated in `RR.Settings`, filesystem path logic is centralized in `RR.Config.Paths`, and the business logic previously split across `RR.Config.Auth` and the command modules now lives in `RR.Services.*`. The remaining work is to move the command modules into the `RR.CLI.*` namespace and do the final cleanup pass.
 
 
 ## Context and Orientation
@@ -98,14 +105,17 @@ Milestones 1 and 2 are complete. The provider boundary now lives entirely under 
           settings_store.ex                 # RR.Providers.SettingsStore — settings persistence behaviour
           settings_store/
             file.ex                         # RR.Providers.SettingsStore.File — JSON settings file provider
+        services/
+          aliases.ex                        # RR.Services.Aliases — alias persistence and resolution
+          auth.ex                           # RR.Services.Auth — %Auth{} and token validation
+          clusters.ex                       # RR.Services.Clusters — cluster lookup and matching
+          kubeconfigs.ex                    # RR.Services.Kubeconfigs — kubeconfig fetch/save/validation
         shell.ex                            # RR.Shell — info_stdout/1, info_stderr/1, error/1
-      config/
-        auth.ex                             # RR.Config.Auth — %Auth{} struct, get/put auth, validate token, ETS cache
       cmds/
-        kf.ex                               # RR.KubeConfig — arg parsing + cluster selection + kubeconfig fetch/save + output
-        login.ex                            # RR.Login — arg parsing + prompt + auth validation + save
-        list.ex                             # RR.List — arg parsing + fetch clusters + render table
-        alias.ex                            # RR.Alias — arg parsing + alias set/resolve/list
+        kf.ex                               # RR.KubeConfig — arg parsing + output, delegates to RR.Services.Kubeconfigs
+        login.ex                            # RR.Login — arg parsing + prompt, delegates to RR.Services.Auth
+        list.ex                             # RR.List — arg parsing + table rendering, delegates to RR.Services.Clusters
+        alias.ex                            # RR.Alias — arg parsing + output, delegates to RR.Services.Aliases
         yo.ex                               # RR.Yo — arg parsing + render shell integration template
     test/
       test_helper.exs                       # defines Mox mocks, starts ExUnit
@@ -414,3 +424,4 @@ In `lib/rr/providers/auth_cache.ex`, define:
 
 Revision note (2026-03-25): Activated this plan under `docs/exec-plans/active/` and updated the document after completing Milestone 1 so the recorded file paths, verification commands, discoveries, and decisions match the repository state.
 Revision note (2026-03-25): Updated the plan after Milestone 2 to reflect the `RR.Settings` / `RR.Config.Paths` split, document the decision to keep `:external_bound`, and correct the stale-reference verification to allow the still-temporary `RR.Config.Auth` module.
+Revision note (2026-03-25): Updated the plan after Milestone 3 to reflect the new `RR.Services.*` modules, the removal of `RR.Config.Auth`, and the fact that the old command modules now act as wrappers pending the CLI namespace move in Milestone 4.

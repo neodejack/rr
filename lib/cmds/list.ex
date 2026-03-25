@@ -1,13 +1,11 @@
 defmodule RR.List do
   @moduledoc false
-  alias RR.Config.Auth
-  alias RR.Providers.Rancher
+  alias RR.Services.Clusters
   alias RR.Shell
 
   def run(args) do
     with :ok <- parse_args(args),
-         {:ok, auth} <- Auth.ensure_valid_auth(),
-         {:ok, clusters} <- Rancher.get_clusters(auth) do
+         {:ok, clusters} <- Clusters.list() do
       clusters
       |> to_rows()
       |> render_table()
@@ -57,7 +55,7 @@ defmodule RR.List do
   end
 
   defp to_rows(clusters) do
-    Enum.map(clusters, fn cluster -> {cluster["name"], cluster["id"]} end)
+    Enum.map(clusters, fn cluster -> {cluster.name, cluster.id} end)
   end
 
   defp render_table(rows) do

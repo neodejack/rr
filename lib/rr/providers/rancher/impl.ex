@@ -2,8 +2,8 @@ defmodule RR.Providers.Rancher.Impl do
   @moduledoc false
   @behaviour RR.Providers.Rancher
 
-  alias RR.Config.Auth
-  alias RR.KubeConfig
+  alias RR.Services.Auth
+  alias RR.Services.Clusters.Cluster
   alias RR.Shell
 
   @impl true
@@ -31,14 +31,14 @@ defmodule RR.Providers.Rancher.Impl do
   end
 
   @impl true
-  def get_kubeconfig(%Auth{} = auth, %KubeConfig{id: id} = kubeconfig) do
+  def get_kubeconfig(%Auth{} = auth, %Cluster{id: id} = cluster) do
     url = "/v3/clusters/#{id}?action=generateKubeconfig"
 
     with {:ok, req} <- rancher_base_req(auth),
          {:ok, resp} <- Req.post(req, url: url) do
       case resp do
         %Req.Response{status: 200} ->
-          {:ok, %{kubeconfig | kubeconfig: resp.body["config"]}}
+          {:ok, %{cluster | kubeconfig: resp.body["config"]}}
 
         _ ->
           {:error,
