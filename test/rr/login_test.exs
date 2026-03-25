@@ -3,12 +3,12 @@ defmodule RR.LoginTest do
 
   import Mox
 
-  alias RR.Config
   alias RR.Config.Auth
   alias RR.Login
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
+  alias RR.Settings
 
   @day_ms 86_400_000
   @hostname "https://rancher.example"
@@ -50,7 +50,8 @@ defmodule RR.LoginTest do
 
   describe "run/1" do
     test "invalid token does not print extra warnings" do
-      Config.put_auth({@hostname, @token_invalid})
+      Settings.put("rancher_hostname", @hostname)
+      Settings.put("rancher_token", @token_invalid)
 
       expect(RancherMock, :get_token_info, 2, &get_token_info_mock/1)
 
@@ -63,7 +64,8 @@ defmodule RR.LoginTest do
     end
 
     test "valid token expiring soon prints warning" do
-      Config.put_auth({@hostname, @token_expiring_in_7_days})
+      Settings.put("rancher_hostname", @hostname)
+      Settings.put("rancher_token", @token_expiring_in_7_days)
 
       expect(RancherMock, :get_token_info, 2, &get_token_info_mock/1)
 
@@ -76,7 +78,8 @@ defmodule RR.LoginTest do
     end
 
     test "valid token not expiring soon warns about existing config" do
-      Config.put_auth({@hostname, @token_valid})
+      Settings.put("rancher_hostname", @hostname)
+      Settings.put("rancher_token", @token_valid)
 
       expect(RancherMock, :get_token_info, 2, &get_token_info_mock/1)
 
@@ -89,7 +92,8 @@ defmodule RR.LoginTest do
     end
 
     test "existing valid token with transient api error returns error" do
-      Config.put_auth({@hostname, @token_valid})
+      Settings.put("rancher_hostname", @hostname)
+      Settings.put("rancher_token", @token_valid)
 
       expect(RancherMock, :get_token_info, fn _ ->
         {:error, :unknown, "rancher api error - GET #{@hostname}/v3/tokens/token-valid\nboom"}
@@ -112,7 +116,8 @@ defmodule RR.LoginTest do
       assert_received {:result, {:error, msg}}
       assert msg =~ "token validation failed"
       assert result =~ "rancher hostname"
-      assert Config.get_auth() == {nil, nil}
+      assert Settings.get("rancher_hostname") == nil
+      assert Settings.get("rancher_token") == nil
       assert :miss == AuthCacheMock.get({@hostname, @token_valid})
     end
   end

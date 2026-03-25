@@ -1,8 +1,8 @@
 defmodule RR.KubeConfig do
   @moduledoc false
   alias RR.Alias
-  alias RR.Config
   alias RR.Config.Auth
+  alias RR.Config.Paths
   alias RR.Providers.Rancher
   alias RR.Shell
 
@@ -103,7 +103,7 @@ defmodule RR.KubeConfig do
   defp output_kubeconfig_path(kubeconfig_path, generate_sh_template?)
 
   defp output_kubeconfig_path(kubconfig_path, true) do
-    sh_template_path()
+    Paths.sh_template_path()
     |> EEx.eval_file(kf_path: kubconfig_path)
     |> Shell.info_stdout()
   end
@@ -124,7 +124,7 @@ defmodule RR.KubeConfig do
   end
 
   defp save_to_file({:ok, target_cluster}) do
-    with :ok <- File.mkdir_p(kubeconfig_dir()),
+    with :ok <- File.mkdir_p(Paths.kubeconfig_dir()),
          kb_path = kubeconfig_file_path(target_cluster),
          :ok <- File.write(kb_path, target_cluster.kubeconfig) do
       Shell.info_stderr(["new kubeconfig is saved to ", kb_path])
@@ -158,21 +158,7 @@ defmodule RR.KubeConfig do
     end
   end
 
-  defp kubeconfig_dir do
-    Path.join(Config.home_dir(), "kubeconfigs")
-  end
-
   defp kubeconfig_file_path(%__MODULE__{name: name}) do
-    Path.join(
-      kubeconfig_dir(),
-      name
-    )
-  end
-
-  defp sh_template_path do
-    :rr
-    |> :code.priv_dir()
-    |> to_string()
-    |> Path.join("templates/sh.eex")
+    Path.join(Paths.kubeconfig_dir(), name)
   end
 end

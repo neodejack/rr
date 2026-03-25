@@ -1,9 +1,9 @@
 defmodule RR.Config.Auth do
   @moduledoc false
   alias __MODULE__
-  alias RR.Config
   alias RR.Providers.AuthCache
   alias RR.Providers.Rancher
+  alias RR.Settings
   alias RR.Shell
 
   @type t :: %Auth{}
@@ -12,8 +12,8 @@ defmodule RR.Config.Auth do
 
   def get_auth do
     auth = %Auth{
-      rancher_hostname: Config.get("rancher_hostname"),
-      rancher_token: Config.get("rancher_token")
+      rancher_hostname: Settings.get("rancher_hostname"),
+      rancher_token: Settings.get("rancher_token")
     }
 
     if auth.rancher_hostname != nil and auth.rancher_token != nil do
@@ -24,8 +24,8 @@ defmodule RR.Config.Auth do
   end
 
   def put_auth(auth) do
-    Config.put("rancher_hostname", auth.rancher_hostname)
-    Config.put("rancher_token", auth.rancher_token)
+    Settings.put("rancher_hostname", auth.rancher_hostname)
+    Settings.put("rancher_token", auth.rancher_token)
   end
 
   @type error_reason :: :unauthorized | :unknown

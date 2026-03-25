@@ -24,7 +24,7 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 ## Progress
 
 - [x] (2026-03-25 07:58Z) Milestone 1: Providers layer completed. Moved this plan to `docs/exec-plans/active/`, replaced `External.*` with `RR.Providers.*`, added `RR.Providers.AuthCache`, updated tests to use provider mocks, and verified with `mix compile --warnings-as-errors`, `mix test`, `mix format --check-formatted`, and `rg "External\." lib test config`.
-- [ ] Milestone 2: Config layer (extract RR.Config.Paths from RR.Config)
+- [x] (2026-03-25 08:05Z) Milestone 2: Config layer completed. Renamed `RR.Config` to `RR.Settings`, added `RR.Config.Paths` for home, settings, kubeconfig, and template paths, updated callers and tests, and verified with `mix compile --warnings-as-errors`, `mix test`, and `mix format --check-formatted`.
 - [ ] Milestone 3: Services layer (create RR.Services.Auth, Clusters, Kubeconfigs, Aliases; move business logic out of commands)
 - [ ] Milestone 4: CLI layer (restructure commands into RR.CLI.*, create RR.CLI.Output)
 - [ ] Milestone 5: Cleanup (remove old files, inline RR.Constants, final validation)
@@ -37,6 +37,9 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 
 - Observation: Replacing the ETS cache with a mocked provider changed the tests' setup requirements. `start_supervised!/1` used the default `Agent` child id, so repeated setup blocks collided until each agent received a unique `id`.
   Evidence: `mix test` initially failed with `bad child specification, got: {:already_started, ...}` in `test/rr/config/auth_test.exs` and `test/rr/login_test.exs`.
+
+- Observation: The original Milestone 2 stale-reference check was too strict for the actual migration sequence. `RR.Config.Auth` still exists until Milestone 3, so the verification must allow that module while confirming that generic settings and path lookups moved to `RR.Settings` and `RR.Config.Paths`.
+  Evidence: `rg "RR\.Config\." lib test | grep -v "RR\.Config\.Paths"` still matched `RR.Config.Auth` after the settings/path refactor.
 
 
 ## Decision Log
@@ -57,10 +60,18 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
   Rationale: The repository already checks in `docs/PLAN.md`, and changing the plan-guidance filename would add unrelated churn to an architecture refactor. Recording the discrepancy keeps the plan self-consistent without expanding scope.
   Date/Author: 2026-03-25
 
+- Decision: Keep the shared provider app-env key as `:external_bound` during the refactor instead of renaming it to `:provider_impl`.
+  Rationale: The repository already uses one shared switch across environments, and the new provider modules preserve that behavior. Renaming the key would add configuration churn without improving the layered split.
+  Date/Author: 2026-03-25
+
+- Decision: Land `RR.Settings` and `RR.Config.Paths` in Milestone 2 while intentionally leaving `RR.Config.Auth` in place until Milestone 3.
+  Rationale: Auth logic is still a service concern that will move wholesale in the next milestone. Keeping `RR.Config.Auth` temporarily avoids a half-step where auth helpers bounce between modules before the services layer exists.
+  Date/Author: 2026-03-25
+
 
 ## Outcomes & Retrospective
 
-Milestone 1 is complete. The provider boundary now lives entirely under `lib/rr/providers/`, the Rancher provider accepts auth explicitly instead of loading it internally, the auth cache is abstracted behind a behaviour, and the test suite still passes with provider mocks. The remaining work is structural: extract config paths and settings, move business logic into services, then shrink the CLI modules down to argument parsing and rendering.
+Milestones 1 and 2 are complete. The provider boundary now lives entirely under `lib/rr/providers/`, persisted settings access is isolated in `RR.Settings`, and filesystem path logic is centralized in `RR.Config.Paths`. The remaining work is to move business logic into services, then shrink the CLI modules down to argument parsing and rendering.
 
 
 ## Context and Orientation
@@ -71,10 +82,12 @@ Milestone 1 is complete. The provider boundary now lives entirely under `lib/rr/
 
     lib/
       rr.ex                                 # RR — Burrito entry point, command router, help/version
-      config.ex                             # RR.Config — read/write persisted JSON config, home_dir, get_auth/put_auth
       rr/
         application.ex                      # RR.Application — OTP app start, optionally calls RR.main()
+        settings.ex                         # RR.Settings — generic persisted settings read/write
         constants.ex                        # RR.Constants — cli_name atom and string
+        config/
+          paths.ex                          # RR.Config.Paths — home_dir, settings_file, kubeconfig_dir, template paths
         providers/
           auth_cache.ex                     # RR.Providers.AuthCache — cache behaviour
           auth_cache/
@@ -132,11 +145,11 @@ This milestone renames the `External.*` namespace into `RR.Providers.*` and extr
 
 **What changes:**
 
-Create `lib/rr/providers/rancher.ex` as `RR.Providers.Rancher` — this is the behaviour module (currently `External.RancherHttpClient`). It defines the same three callbacks (`get_clusters/1`, `get_kubeconfig/2`, `get_token_info/1`) but the signatures change: every function now takes an `auth` struct as its first argument. The `impl/0` function uses `Module.concat([RR.Providers.Rancher, Application.get_env(:rr, :provider_impl, Impl)])`. Note the new app env key `:provider_impl` replaces `:external_bound` to better describe its purpose.
+Create `lib/rr/providers/rancher.ex` as `RR.Providers.Rancher` — this is the behaviour module (currently `External.RancherHttpClient`). It defines the same three callbacks (`get_clusters/1`, `get_kubeconfig/2`, `get_token_info/1`) but the signatures change: every function now takes an `auth` struct as its first argument. The `impl/0` function continues to use the existing shared app env key `:external_bound`.
 
 Create `lib/rr/providers/rancher/impl.ex` as `RR.Providers.Rancher.Impl` — move the implementation from `External.RancherHttpClient.Impl`. Remove the private `rancher_base_req/0` function that internally loads auth. Instead, each function receives auth and builds the Req client inline or via a private helper that takes auth as a parameter.
 
-Create `lib/rr/providers/settings_store.ex` as `RR.Providers.SettingsStore` — this is the behaviour module (currently `External.Config`). Same two callbacks: `read/0`, `write/1`. Same `impl/0` pattern with `:provider_impl`.
+Create `lib/rr/providers/settings_store.ex` as `RR.Providers.SettingsStore` — this is the behaviour module (currently `External.Config`). Same two callbacks: `read/0`, `write/1`. Keep the same `impl/0` pattern with `:external_bound`.
 
 Create `lib/rr/providers/settings_store/file.ex` as `RR.Providers.SettingsStore.File` — move the implementation from `External.Config.Impl`.
 
@@ -330,7 +343,7 @@ Expected output: no matches.
 
 To verify no stale RR.Config references remain after Milestone 2 (should only appear in the new RR.Config.Paths):
 
-    grep -r "RR\.Config\." lib/ test/ | grep -v "RR\.Config\.Paths"
+    rg "RR\.Config\." lib test | grep -v "RR\.Config\.Paths" | grep -v "RR\.Config\.Auth"
 
 Expected output: no matches.
 
@@ -400,3 +413,4 @@ In `lib/rr/providers/auth_cache.ex`, define:
 
 
 Revision note (2026-03-25): Activated this plan under `docs/exec-plans/active/` and updated the document after completing Milestone 1 so the recorded file paths, verification commands, discoveries, and decisions match the repository state.
+Revision note (2026-03-25): Updated the plan after Milestone 2 to reflect the `RR.Settings` / `RR.Config.Paths` split, document the decision to keep `:external_bound`, and correct the stale-reference verification to allow the still-temporary `RR.Config.Auth` module.

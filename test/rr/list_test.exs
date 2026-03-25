@@ -3,11 +3,11 @@ defmodule RR.ListTest do
 
   import Mox
 
-  alias RR.Config
   alias RR.List
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
+  alias RR.Settings
 
   setup :verify_on_exit!
 
@@ -27,7 +27,8 @@ defmodule RR.ListTest do
     stub(AuthCacheMock, :put, fn _key, _valid? -> :ok end)
     stub(AuthCacheMock, :clear, fn -> :ok end)
 
-    Config.put_auth({"https://rancher.example", "token-123:abc"})
+    Settings.put("rancher_hostname", "https://rancher.example")
+    Settings.put("rancher_token", "token-123:abc")
     :ok
   end
 

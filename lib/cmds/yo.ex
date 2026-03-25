@@ -1,10 +1,11 @@
 defmodule RR.Yo do
   @moduledoc false
+  alias RR.Config.Paths
   alias RR.Shell
 
   def run(args) do
     with :ok <- parse_args(args) do
-      yo_template_path()
+      Paths.yo_template_path()
       |> EEx.eval_file()
       |> Shell.info_stdout()
 
@@ -50,12 +51,5 @@ defmodule RR.Yo do
     USAGE:
       rr yo
     """)
-  end
-
-  defp yo_template_path do
-    :rr
-    |> :code.priv_dir()
-    |> to_string()
-    |> Path.join("templates/yo.eex")
   end
 end

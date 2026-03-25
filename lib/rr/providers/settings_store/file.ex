@@ -2,7 +2,7 @@ defmodule RR.Providers.SettingsStore.File do
   @moduledoc false
   @behaviour RR.Providers.SettingsStore
 
-  @config "config.json"
+  alias RR.Config.Paths
 
   @impl true
   def read do
@@ -17,16 +17,12 @@ defmodule RR.Providers.SettingsStore.File do
 
   @impl true
   def write(config) do
-    with :ok <- File.mkdir_p(home_dir()) do
-      File.write(file(), JSON.encode!(config))
+    with :ok <- File.mkdir_p(Paths.home_dir()) do
+      File.write(Paths.settings_file(), JSON.encode!(config))
     end
   end
 
   defp file do
-    home_dir() |> Path.join(@config) |> Path.expand()
-  end
-
-  defp home_dir do
-    RR.Config.home_dir()
+    Paths.settings_file()
   end
 end

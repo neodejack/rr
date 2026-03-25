@@ -1,18 +1,18 @@
 defmodule RR.Alias do
   @moduledoc false
-  alias RR.Config
+  alias RR.Settings
   alias RR.Shell
 
   def run(args) do
     with {:ok, {alias_name, full_name}} <- parse_args(args) do
-      Config.put_in([Access.key("alias", %{}), alias_name], full_name)
+      Settings.put_in([Access.key("alias", %{}), alias_name], full_name)
       Shell.info_stdout("alias: #{alias_name} -> #{full_name} ")
       :ok
     end
   end
 
   def resolve(alias) do
-    case Config.get_in(["alias", alias]) do
+    case Settings.get_in(["alias", alias]) do
       nil ->
         alias
 
@@ -59,7 +59,7 @@ defmodule RR.Alias do
   end
 
   defp render_alias_list do
-    aliases = Config.get_in(["alias"])
+    aliases = Settings.get_in(["alias"])
 
     if map_size(aliases) > 0 do
       Shell.info_stdout("these aliases are found:\n")
