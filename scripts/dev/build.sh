@@ -5,6 +5,28 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 image_tag="rr-dev-env"
 
+container_platform() {
+  local arch
+
+  arch="$(podman info --format '{{.Host.Arch}}')"
+
+  case "$arch" in
+    amd64|arm64)
+      printf 'linux/%s\n' "$arch"
+      ;;
+    x86_64)
+      printf '%s\n' 'linux/amd64'
+      ;;
+    aarch64)
+      printf '%s\n' 'linux/arm64'
+      ;;
+    *)
+      printf 'Unsupported Podman architecture: %s\n' "$arch" >&2
+      exit 1
+      ;;
+  esac
+}
+
 copy_artifact() {
   local source="$1"
   local destination="$2"
@@ -59,19 +81,23 @@ if [[ ! -f "$repo_root/Dockerfile.dev" ]]; then
   exit 1
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  printf '%s\n' "docker is required for just dev build. Install Docker or provide a docker-compatible CLI in PATH." >&2
+if ! command -v podman >/dev/null 2>&1; then
+  printf '%s\n' "podman is required for just dev build. Install Podman and ensure it is available in PATH." >&2
   exit 1
 fi
 
 mkdir -p "$repo_root/dev_out/bin"
 
-docker build \
+platform="$(container_platform)"
+
+podman build \
+  --platform "$platform" \
   --tag "$image_tag" \
   --file "$repo_root/Dockerfile.dev" \
   "$repo_root"
 
-docker run \
+podman run \
+  --platform "$platform" \
   --rm \
   --user "$(id -u):$(id -g)" \
   --volume "$repo_root:/workspace" \

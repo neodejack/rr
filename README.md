@@ -68,6 +68,8 @@ Build the local dev binaries with:
 just dev build
 ```
 
+The build and Linux shell workflows use `podman` for the shared Linux container environment.
+
 Enter the isolated macOS shell with:
 
 ```bash

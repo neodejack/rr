@@ -17,10 +17,11 @@ After this change, a maintainer will be able to run `just dev build` once to pro
 - [x] (2026-03-26 11:19Z) Drafted this ExecPlan from the repository state and from the agreed manual-testing workflow.
 - [x] (2026-03-26 11:20Z) Verified that `just` submodules work in practice with `mod dev` and `just dev build`, so the command shape in this plan is feasible.
 - [x] (2026-03-26 12:08Z) Added the root `justfile` import for the `dev` submodule, defined the `build`, `macos`, and `linux` recipes in `dev.just`, added first-pass helper scripts under `scripts/dev/`, and ignored `dev_out/`.
-- [x] (2026-03-26 11:44Z) Added `Dockerfile.dev`, replaced the build placeholder with a Docker-driven `scripts/dev/build.sh`, constrained the Burrito build to `macos_arm` and `linux`, and verified that `just dev build` writes executable `dev_out/bin/rr_macos_arm` and `dev_out/bin/rr_linux`.
+- [x] (2026-03-26 11:44Z) Added `Dockerfile.dev`, replaced the build placeholder with a container-driven `scripts/dev/build.sh`, constrained the Burrito build to `macos_arm` and `linux`, and verified that `just dev build` writes executable `dev_out/bin/rr_macos_arm` and `dev_out/bin/rr_linux`.
 - [x] (2026-03-26 12:16Z) Replaced the macOS and Linux shell placeholders with real shell bootstrapping that seeds `config.json` only on first entry, marks the prompt, and points `rr` at the repo-local binaries.
 - [x] (2026-03-26 12:16Z) Documented the workflow in `README.md`.
-- [ ] Validate `just dev build`, `just dev macos`, and `just dev linux`, then update this plan with evidence and move it to `docs/exec-plans/completed/` (completed: `just dev build`, macOS shell entry, config seeding, `RR_HOME`, `type rr`, `rr --help`, `rr kf --help`, Linux shell entry, config seeding, `RR_HOME`, `type rr`; remaining: run `rr --help` successfully inside the Linux shell on this Apple Silicon validation machine, where the current Podman-backed x86_64 execution path fails with `rosetta error: bss_size overflow`).
+- [x] (2026-03-26 12:34Z) Switched the dev build and Linux shell workflow from `docker` to direct `podman` invocations and aligned the README and plan language with that container runtime.
+- [x] (2026-03-26 13:01Z) Revalidated `just dev build` and `just dev linux` under direct `podman`, pinned the shared image to the Podman machine's native architecture to avoid an accidental `linux/amd64` image selection, confirmed `rr --help` and `rr kf --help` work inside the Linux shell on this Apple Silicon machine, and reran `mix test`.
 
 
 ## Surprises & Discoveries
@@ -49,17 +50,20 @@ After this change, a maintainer will be able to run `just dev build` once to pro
 - Observation: `.gitignore` already ignores `/burrito_out/` but does not ignore `dev_out/`, so this plan must add it.
   Evidence: `.gitignore` contains `/burrito_out/` and no `dev_out` entry.
 
-- Observation: Docker is not installed in the current planning environment, so the Docker commands in this plan were designed from repository context and tool behavior, not by executing them here.
+- Observation: Docker is not installed in the current planning environment, so the original container workflow was designed from repository context and tool behavior rather than direct Docker execution.
   Evidence: `docker version` returned `command not found`.
 
-- Observation: Even though `docker` is absent on this machine, the Docker-based workflow can still be validated here by starting the local Podman VM and placing a temporary `docker -> podman` wrapper earlier in `PATH`.
-  Evidence: `just dev build` completed successfully under that wrapper and produced the expected binaries in `dev_out/bin/`.
+- Observation: The shared dev image and Linux shell work with direct `podman build` and `podman run`, so the repo no longer needs a `docker` compatibility wrapper in `PATH`.
+  Evidence: the current helper scripts call `podman` directly, and subsequent validation runs use `podman` without a wrapper.
 
 - Observation: Forcing the shared image itself to `linux/amd64` made the Linux shell architecture line up with `rr_linux`, but broke the macOS Burrito build under this Podman setup with Zig `unexpected errno: 38` during the `macos_arm` wrapper build.
   Evidence: `just dev build` failed during the `BURRITO_TARGET=macos_arm` run after the image was forced to `linux/amd64`, and the failure disappeared again when the build flow returned to the native image architecture.
 
 - Observation: The Linux shell bootstraps correctly under Podman on this Apple Silicon machine, but executing the mounted `rr_linux` binary still crashes with `rosetta error: bss_size overflow` even inside an x86_64 container image.
   Evidence: inside `just dev linux`, `echo $RR_HOME` returned `/rr-home` and `type rr` resolved to the mounted binary, but both `rr --help` and `rr kf --help` ended with `rosetta error: bss_size overflow`.
+
+- Observation: Direct `podman build` initially resolved the shared dev image to `linux/amd64` on this `linux/arm64` Podman machine, which recreated the unstable cross-architecture path and broke the Linux Burrito build with `/usr/bin/xz: payload.foilz: No such file or directory`.
+  Evidence: `podman image inspect rr-dev-env --format '{{.Os}}/{{.Architecture}}'` reported `linux/amd64`, `just dev build` failed in the Linux Burrito phase with that `payload.foilz` error, and the failure disappeared after the scripts pinned `podman build` and `podman run` to the Podman server architecture.
 
 
 ## Decision Log
@@ -72,8 +76,8 @@ After this change, a maintainer will be able to run `just dev build` once to pro
   Rationale: This matches the agreed command shape and keeps the root `justfile` concise.
   Date/Author: 2026-03-26 / Codex
 
-- Decision: Use one shared `Dockerfile.dev` for both the build environment and the Linux interactive shell.
-  Rationale: The build and Linux shell need the same Linux distribution and developer tooling. A single image reduces duplication and keeps the workflow easier to understand. There is no need for a second smaller runtime image at this scope.
+- Decision: Use one shared `Dockerfile.dev` for both the build environment and the Linux interactive shell, but invoke it through `podman`.
+  Rationale: The build and Linux shell need the same Linux distribution and developer tooling. A single image reduces duplication and keeps the workflow easier to understand, while direct `podman` usage matches the intended local runtime.
   Date/Author: 2026-03-26 / Codex
 
 - Decision: Make `just dev build` produce exactly two copied artifacts, `dev_out/bin/rr_macos_arm` and `dev_out/bin/rr_linux`.
@@ -88,7 +92,7 @@ After this change, a maintainer will be able to run `just dev build` once to pro
   Rationale: The two shells should feel similar, but their generated files and experiments should not interfere with each other.
   Date/Author: 2026-03-26 / Codex
 
-- Decision: Keep the first milestone helper scripts as explicit placeholders that fail fast until the Docker build flow and interactive shell setup are implemented.
+- Decision: Keep the first milestone helper scripts as explicit placeholders that fail fast until the container build flow and interactive shell setup are implemented.
   Rationale: This preserves the final `just dev ...` command surface immediately, keeps the recipes readable, and avoids pretending the later milestones already work.
   Date/Author: 2026-03-26 / Codex
 
@@ -101,13 +105,17 @@ After this change, a maintainer will be able to run `just dev build` once to pro
   Date/Author: 2026-03-26 / Codex
 
 - Decision: Add `qemu-user-static` to `Dockerfile.dev` and make the Linux shell alias `rr` through `qemu-x86_64-static` when the container itself is not x86_64.
-  Rationale: This keeps one shared Dockerfile while giving the Linux shell a best-effort x86_64 execution path on ARM hosts without changing the dev-build artifact contract.
+  Rationale: This keeps one shared container image definition while giving the Linux shell a best-effort x86_64 execution path on ARM hosts without changing the dev-build artifact contract.
+  Date/Author: 2026-03-26 / Codex
+
+- Decision: Pin the shared Podman image to the Podman server's native architecture in both the build and Linux shell scripts.
+  Rationale: On this Apple Silicon machine, direct `podman build` initially reused an accidental `linux/amd64` image and reintroduced the unstable cross-architecture path. Using the Podman server architecture keeps the shared image native while still letting the Linux shell run the x86_64 release binary through the existing QEMU alias.
   Date/Author: 2026-03-26 / Codex
 
 
 ## Outcomes & Retrospective
 
-Milestones 1 and 2 are complete, and milestone 3 is implemented but not fully validated. The repository now has the `just` command surface, the shared `Dockerfile.dev` environment, a working `just dev build` flow that exports `dev_out/bin/rr_macos_arm` and `dev_out/bin/rr_linux`, and real macOS and Linux shell bootstrapping scripts that keep `RR_HOME` isolated and preserve seeded config files across re-entry. The remaining gap is Linux-shell command execution on this Apple Silicon validation machine: under the available Podman-based Docker compatibility layer, `rr_linux` still crashes with `rosetta error: bss_size overflow`, so this plan should stay active until that runtime path is verified under a real Docker-backed environment or otherwise fixed.
+All three milestones are complete. The repository now has the `just` command surface, the shared `Dockerfile.dev` environment, a working `just dev build` flow that exports `dev_out/bin/rr_macos_arm` and `dev_out/bin/rr_linux`, and real macOS and Linux shell bootstrapping scripts that keep `RR_HOME` isolated and preserve seeded config files across re-entry. The final Podman-specific fix was to pin the shared image to the Podman machine's native architecture, which removed the accidental `linux/amd64` image path on this Apple Silicon machine and made the Linux shell usable again through the existing `qemu-x86_64-static` alias. With that correction in place, `just dev linux`, `rr --help`, and `rr kf --help` all succeed under direct Podman, so this plan is ready to move to `docs/exec-plans/completed/`.
 
 
 ## Context and Orientation
@@ -134,7 +142,7 @@ Implement this change in three milestones so each step leaves the repository in 
 
 The first milestone introduces the automation scaffolding. Update the root `justfile` to add `mod dev`, then create `dev.just` with three public recipes named `build`, `macos`, and `linux`. These recipes should not contain large blocks of shell logic. Instead, create a small helper directory `scripts/dev/` with focused scripts so a novice can read the control flow without wading through quoting rules. Add `scripts/dev/build.sh` to perform the release build inside the Linux container, and add `scripts/dev/macos-shell.sh` and `scripts/dev/linux-shell.sh` to prepare the isolated homes and launch the appropriate shell. Add `/dev_out/` to `.gitignore` in the same milestone so repeated local runs do not dirty the repository.
 
-The second milestone builds the shared Docker environment. Create `Dockerfile.dev` at the repository root. This file should install the same Elixir, OTP, and Zig versions used in `.github/workflows/release.yml`. Treat this image as a reusable developer environment rather than an image that bakes the repository source into itself. The `just dev build` recipe should first build this image with a stable local tag such as `rr-dev-env`, then run a container from it with the repository mounted at `/workspace`. Inside that container, `scripts/dev/build.sh` should run from `/workspace`, execute `mix deps.get --only prod`, `mix compile`, and `MIX_ENV=prod mix release`, then copy `burrito_out/rr_macos_arm` to `dev_out/bin/rr_macos_arm` and `burrito_out/rr_linux` to `dev_out/bin/rr_linux`. The copy destination should be a host-mounted `dev_out/bin/` directory so the container can exit cleanly without any later `docker cp` step.
+The second milestone builds the shared container environment. Create `Dockerfile.dev` at the repository root. This file should install the same Elixir, OTP, and Zig versions used in `.github/workflows/release.yml`. Treat this image as a reusable developer environment rather than an image that bakes the repository source into itself. The `just dev build` recipe should first build this image with a stable local tag such as `rr-dev-env`, then run a container from it with the repository mounted at `/workspace`. Inside that container, `scripts/dev/build.sh` should run from `/workspace`, execute `mix deps.get --only prod`, `mix compile`, and `MIX_ENV=prod mix release`, then copy `burrito_out/rr_macos_arm` to `dev_out/bin/rr_macos_arm` and `burrito_out/rr_linux` to `dev_out/bin/rr_linux`. The copy destination should be a host-mounted `dev_out/bin/` directory so the container can exit cleanly without any later image-copy step. Use `podman build` and `podman run` for this workflow.
 
 The third milestone adds the interactive manual-test shells. `scripts/dev/macos-shell.sh` should ensure `dev_out/home/macos` exists, copy `~/.rr/config.json` into `dev_out/home/macos/config.json` if that file does not already exist, then launch an interactive `zsh` in the current terminal with `RR_HOME` exported to that macOS home and `rr` aliased to the absolute path of `dev_out/bin/rr_macos_arm`. The shell should remain obviously separate from the user’s normal shell session. The safest way to do that is to generate a small temporary Zsh startup file inside `dev_out/` that first sources the user’s normal `~/.zshrc`, then exports `RR_HOME`, defines the `rr` alias, and prepends a short prompt marker such as `(rr-dev-macos) `. Launch Zsh with `ZDOTDIR` pointing at that temporary startup directory so the user keeps their normal shell customizations plus the dev-specific overrides.
 
@@ -203,12 +211,13 @@ Once inside that shell, verify:
     type rr
     rr --help
 
-Observed result in the current validation environment:
+Observed result in the current validation environment after the Podman platform fix:
 
     $RR_HOME is /rr-home or the chosen mounted Linux home path
     type rr reports an alias pointing at the mounted rr_linux binary
     editing dev_out/home/linux/config.json and re-entering the shell leaves that file unchanged
-    rr --help currently fails under Podman on Apple Silicon with `rosetta error: bss_size overflow`
+    rr --help prints the CLI help from the newly built binary
+    rr kf --help prints the command help from the newly built binary
 
 Run the repository test suite after the automation files are added:
 
@@ -225,7 +234,7 @@ The change is accepted when `just dev build` completes without manual extraction
 
 The macOS shell is accepted when `just dev macos` opens an interactive shell in the current terminal, `RR_HOME` points at `dev_out/home/macos`, `rr` resolves to `dev_out/bin/rr_macos_arm`, and the first entry copies `~/.rr/config.json` into `dev_out/home/macos/config.json` only if that file was absent. Edit `dev_out/home/macos/config.json`, exit the shell, run `just dev macos` again, and confirm the file was not overwritten.
 
-The Linux shell is accepted when `just dev linux` opens an interactive shell inside Docker, `RR_HOME` points at the mounted Linux test home, `rr` resolves to the mounted Linux binary, and the first entry copies the host config into `dev_out/home/linux/config.json` only if that file was absent. Edit `dev_out/home/linux/config.json`, exit, run `just dev linux` again, and confirm the file was not overwritten.
+The Linux shell is accepted when `just dev linux` opens an interactive shell inside a Podman-managed container, `RR_HOME` points at the mounted Linux test home, `rr` resolves to the mounted Linux binary, and the first entry copies the host config into `dev_out/home/linux/config.json` only if that file was absent. Edit `dev_out/home/linux/config.json`, exit, run `just dev linux` again, and confirm the file was not overwritten.
 
 Finally, run one real command in each shell, such as `rr list` or `rr kf --help`, and confirm no files under `~/.rr` changed during the session. That is the proof that the workflow is both usable and isolated.
 
@@ -307,9 +316,12 @@ Milestone 3 verification transcript:
     $ echo $RR_HOME
     /rr-home
     $ type rr
-    rr is aliased to `/workspace/dev_out/bin/rr_linux'
+    rr is aliased to `qemu-x86_64-static /workspace/dev_out/bin/rr_linux'
     $ rr --help
-    rosetta error: bss_size overflow
+    playing with rancher generated kubeconfigs
+    ...
+    $ rr kf --help
+    obtain and manage kubeconfigs from rancher
 
 
 ## Interfaces and Dependencies
@@ -326,7 +338,7 @@ In the root `justfile`, define:
 
 and place the submodule recipes in `dev.just`.
 
-`Dockerfile.dev` must provide a Debian-based Linux environment with Elixir `1.18.3`, Erlang/OTP `27.3.4.6`, Zig `0.15.1`, Bash, Git, and the basic system packages needed to run `mix deps.get`, `mix compile`, and `mix release`.
+`Dockerfile.dev` must provide a Debian-based Linux environment with Elixir `1.18.3`, Erlang/OTP `27.3.4.6`, Zig `0.15.1`, Bash, Git, and the basic system packages needed to run `mix deps.get`, `mix compile`, and `mix release`. The local developer interface for that image is `podman`.
 
 The helper scripts must rely on `RR_HOME` rather than introducing any new application environment variable. The current application contract in `lib/rr/config/paths.ex` is sufficient and should remain unchanged.
 
@@ -335,10 +347,10 @@ The build script should copy artifacts from `burrito_out/rr_macos_arm` and `burr
 The shell scripts should fail fast with a clear instruction if the expected binary is missing. The message should tell the user to run `just dev build` first.
 
 
-Plan update note: created on 2026-03-26 from the agreed manual-testing workflow. The initial version fixes the command surface, file layout, state location, and single-Dockerfile approach so implementation can proceed without additional design decisions.
+Plan update note: created on 2026-03-26 from the agreed manual-testing workflow. The initial version fixes the command surface, file layout, state location, and single-container-image approach so implementation can proceed without additional design decisions.
 
 Plan update note: revised on 2026-03-26 after milestone 1 implementation to record the shipped `just` submodule wiring, placeholder helper scripts, `.gitignore` change, and the observed `just --list-submodules --list` output.
 
 Plan update note: revised on 2026-03-26 after milestone 2 implementation to record the shipped `Dockerfile.dev`, the working `just dev build` flow, the Burrito single-target override limitation, and the verified artifact formats.
 
-Plan update note: revised on 2026-03-26 after milestone 3 implementation to record the shipped shell bootstrapping scripts, README updates, config-preservation verification, and the remaining Linux-shell runtime blocker under the current Podman-on-Apple-Silicon validation environment.
+Plan update note: revised on 2026-03-26 after final validation to record the direct `podman` runtime switch, the Podman-native-platform fix for the shared image, the successful Linux-shell command validation on Apple Silicon, and the closing `mix test` run.

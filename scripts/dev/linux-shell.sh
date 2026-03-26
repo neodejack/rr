@@ -10,19 +10,43 @@ shell_dir="$repo_root/dev_out/shells"
 bashrc_path="$shell_dir/linux.bashrc"
 seed_config="$HOME/.rr/config.json"
 
+container_platform() {
+  local arch
+
+  arch="$(podman info --format '{{.Host.Arch}}')"
+
+  case "$arch" in
+  amd64 | arm64)
+    printf 'linux/%s\n' "$arch"
+    ;;
+  x86_64)
+    printf '%s\n' 'linux/amd64'
+    ;;
+  aarch64)
+    printf '%s\n' 'linux/arm64'
+    ;;
+  *)
+    printf 'Unsupported Podman architecture: %s\n' "$arch" >&2
+    exit 1
+    ;;
+  esac
+}
+
 if [[ ! -x "$binary" ]]; then
   printf '%s\n' "Missing $binary. Run 'just dev build' first." >&2
   exit 1
 fi
 
-if ! command -v docker >/dev/null 2>&1; then
-  printf '%s\n' "docker is required for just dev linux. Install Docker or provide a docker-compatible CLI in PATH." >&2
+if ! command -v podman >/dev/null 2>&1; then
+  printf '%s\n' "podman is required for just dev linux. Install Podman and ensure it is available in PATH." >&2
   exit 1
 fi
 
 mkdir -p "$rr_home" "$shell_dir"
 
-cat > "$bashrc_path" <<'EOF'
+platform="$(container_platform)"
+
+cat >"$bashrc_path" <<'EOF'
 if [ -f /etc/bash.bashrc ]; then
   . /etc/bash.bashrc
 fi
@@ -38,15 +62,19 @@ fi
 PS1='(rr-dev-linux) \w\$ '
 EOF
 
-if ! docker image inspect "$image_tag" >/dev/null 2>&1; then
-  docker build \
+image_platform="$(podman image inspect "$image_tag" --format '{{.Os}}/{{.Architecture}}' 2>/dev/null || true)"
+
+if [[ "$image_platform" != "$platform" ]]; then
+  podman build \
+    --platform "$platform" \
     --tag "$image_tag" \
     --file "$repo_root/Dockerfile.dev" \
     "$repo_root"
 fi
 
-docker_args=(
+podman_args=(
   run
+  --platform "$platform"
   --rm
   --interactive
   --tty
@@ -60,10 +88,11 @@ docker_args=(
 )
 
 if [[ -f "$seed_config" ]]; then
-  docker_args+=(--volume "$seed_config:/seed-config/config.json:ro")
+  podman_args+=(--volume "$seed_config:/seed-config/config.json:ro")
 fi
 
-container_cmd=$(cat <<'EOF'
+container_cmd=$(
+  cat <<'EOF'
 set -euo pipefail
 mkdir -p /rr-home
 
@@ -76,4 +105,4 @@ exec bash --rcfile /workspace/dev_out/shells/linux.bashrc -i
 EOF
 )
 
-docker "${docker_args[@]}" "$image_tag" bash -lc "$container_cmd"
+podman "${podman_args[@]}" "$image_tag" bash -lc "$container_cmd"
