@@ -17,7 +17,7 @@ After this change, a maintainer will be able to run `just dev build` once to pro
 - [x] (2026-03-26 11:19Z) Drafted this ExecPlan from the repository state and from the agreed manual-testing workflow.
 - [x] (2026-03-26 11:20Z) Verified that `just` submodules work in practice with `mod dev` and `just dev build`, so the command shape in this plan is feasible.
 - [x] (2026-03-26 12:08Z) Added the root `justfile` import for the `dev` submodule, defined the `build`, `macos`, and `linux` recipes in `dev.just`, added first-pass helper scripts under `scripts/dev/`, and ignored `dev_out/`.
-- [ ] Add a single shared `Dockerfile.dev` that provides the Linux toolchain used by both `just dev build` and `just dev linux`.
+- [x] (2026-03-26 11:44Z) Added `Dockerfile.dev`, replaced the build placeholder with a Docker-driven `scripts/dev/build.sh`, constrained the Burrito build to `macos_arm` and `linux`, and verified that `just dev build` writes executable `dev_out/bin/rr_macos_arm` and `dev_out/bin/rr_linux`.
 - [ ] Add helper scripts that keep `dev.just` readable and implement the binary export, one-time config seeding, and interactive shell bootstrapping.
 - [ ] Document the new workflow in `README.md`.
 - [ ] Validate `just dev build`, `just dev macos`, and `just dev linux`, then update this plan with evidence and move it to `docs/exec-plans/completed/`.
@@ -37,6 +37,9 @@ After this change, a maintainer will be able to run `just dev build` once to pro
 - Observation: `just` submodules are a working way to implement the exact command surface `just dev build`.
   Evidence: a temporary throwaway `justfile` with `mod foo` and `foo.just` successfully ran `just foo bar`.
 
+- Observation: Burrito's current `BURRITO_TARGET` override only accepts one named target at a time, even though its README documents comma-separated values.
+  Evidence: `BURRITO_TARGET=macos_arm,linux mix release --overwrite` raised `macos_arm,linux is not a valid target!`, while separate `BURRITO_TARGET=macos_arm` and `BURRITO_TARGET=linux` runs succeeded.
+
 - Observation: The GitHub Actions release workflow already proves that Burrito can produce the shipping binaries from Linux with a single `MIX_ENV=prod mix release` invocation.
   Evidence: `.github/workflows/release.yml` installs Elixir `1.18.3`, OTP `27.3.4.6`, Zig `0.15.1`, then runs `MIX_ENV=prod mix release` and packages `burrito_out/rr_*`.
 
@@ -48,6 +51,9 @@ After this change, a maintainer will be able to run `just dev build` once to pro
 
 - Observation: Docker is not installed in the current planning environment, so the Docker commands in this plan were designed from repository context and tool behavior, not by executing them here.
   Evidence: `docker version` returned `command not found`.
+
+- Observation: Even though `docker` is absent on this machine, the Docker-based workflow can still be validated here by starting the local Podman VM and placing a temporary `docker -> podman` wrapper earlier in `PATH`.
+  Evidence: `just dev build` completed successfully under that wrapper and produced the expected binaries in `dev_out/bin/`.
 
 
 ## Decision Log
@@ -80,10 +86,14 @@ After this change, a maintainer will be able to run `just dev build` once to pro
   Rationale: This preserves the final `just dev ...` command surface immediately, keeps the recipes readable, and avoids pretending the later milestones already work.
   Date/Author: 2026-03-26 / Codex
 
+- Decision: Build the dev binaries with two separate `mix release --overwrite` invocations, one for `macos_arm` and one for `linux`, instead of relying on Burrito's multi-target `BURRITO_TARGET` override.
+  Rationale: The current Burrito builder rejects the documented comma-separated override form. Running the two target-specific builds keeps the workflow deterministic and avoids Windows and Linux ARM builds that the plan does not need.
+  Date/Author: 2026-03-26 / Codex
+
 
 ## Outcomes & Retrospective
 
-Milestone 1 is complete. The repository now exposes `just dev build`, `just dev macos`, and `just dev linux` through a `just` submodule, the helper script layout exists under `scripts/dev/`, and `dev_out/` is ignored. The commands are intentionally not functional yet: they fail with direct milestone-progress messages until the Docker image and interactive shell work lands in the next milestones.
+Milestones 1 and 2 are complete. The repository now has the `just` command surface, the shared `Dockerfile.dev` environment, and a working `just dev build` flow that exports `dev_out/bin/rr_macos_arm` and `dev_out/bin/rr_linux`. The interactive shell commands are still placeholders; the next milestone will replace them with the isolated macOS and Linux shell bootstrapping logic.
 
 
 ## Context and Orientation
@@ -141,10 +151,16 @@ Build the dev binaries with:
 
     just dev build
 
-Expected observable results:
+Observed result after milestone 2:
 
     dev_out/bin/rr_macos_arm exists and is executable
     dev_out/bin/rr_linux exists and is executable
+
+Observed artifact inspection after milestone 2:
+
+    $ file dev_out/bin/rr_macos_arm dev_out/bin/rr_linux
+    dev_out/bin/rr_macos_arm: Mach-O 64-bit executable arm64
+    dev_out/bin/rr_linux:     ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped
 
 Enter the host macOS shell with:
 
@@ -244,6 +260,17 @@ Milestone 1 verification transcript:
             linux
             macos
 
+Milestone 2 verification transcript:
+
+    $ just dev build
+    ...
+    dev_out/bin/rr_macos_arm exists
+    dev_out/bin/rr_linux exists
+
+    $ file dev_out/bin/rr_macos_arm dev_out/bin/rr_linux
+    dev_out/bin/rr_macos_arm: Mach-O 64-bit executable arm64
+    dev_out/bin/rr_linux:     ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, stripped
+
 
 ## Interfaces and Dependencies
 
@@ -271,3 +298,5 @@ The shell scripts should fail fast with a clear instruction if the expected bina
 Plan update note: created on 2026-03-26 from the agreed manual-testing workflow. The initial version fixes the command surface, file layout, state location, and single-Dockerfile approach so implementation can proceed without additional design decisions.
 
 Plan update note: revised on 2026-03-26 after milestone 1 implementation to record the shipped `just` submodule wiring, placeholder helper scripts, `.gitignore` change, and the observed `just --list-submodules --list` output.
+
+Plan update note: revised on 2026-03-26 after milestone 2 implementation to record the shipped `Dockerfile.dev`, the working `just dev build` flow, the Burrito single-target override limitation, and the verified artifact formats.
