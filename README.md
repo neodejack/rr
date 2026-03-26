@@ -62,5 +62,26 @@ if you use [`powerlevel10k`](https://github.com/romkatv/powerlevel10k), it has a
 
 ## development
 
-Burrito (the packaging and build tool) cache the build files for same versions of build (version is defined in `mix.exs`)
-If you rebuild the same version locally, run `rr maintenance uninstall` once to force Burrito to re-extract the runtime.
+Build the local dev binaries with:
+
+```bash
+just dev build
+```
+
+Enter the isolated macOS shell with:
+
+```bash
+just dev macos
+```
+
+Enter the isolated Linux shell with:
+
+```bash
+just dev linux
+```
+
+`dev_out/bin/` stores the locally built binaries. `dev_out/home/macos` and `dev_out/home/linux` store isolated `RR_HOME` state for each shell, so testing does not mutate `~/.rr`.
+
+On first shell entry, the matching dev home copies `~/.rr/config.json` into `dev_out/home/.../config.json` if it does not already exist. After that, the dev config is left alone so you can make local test edits without them being overwritten on the next shell launch.
+
+Burrito (the packaging and build tool) caches extracted runtime files for the same version (the version is defined in `mix.exs`). If a same-version macOS rebuild looks stale, run `rr maintenance uninstall` inside the macOS dev shell, exit, and enter the shell again.
