@@ -2,8 +2,6 @@ defmodule RR.CLI.Commands.Alias do
   @moduledoc false
   @behaviour RR.CLI.Command
 
-  alias RR.CLI.ArgParser
-  alias RR.CLI.Help
   alias RR.CLI.Output
   alias RR.CLI.ParseError
   alias RR.Services.Aliases
@@ -25,33 +23,28 @@ defmodule RR.CLI.Commands.Alias do
   end
 
   @impl true
-  def parse(args) do
-    with {:ok, switches, rest} <- ArgParser.parse(args, args_definition(), __MODULE__) do
-      cond do
-        Keyword.has_key?(switches, :help) ->
-          {:ok, %Help{module: __MODULE__}}
+  def build_action(switches, rest) do
+    cond do
+      Keyword.has_key?(switches, :list) and rest == [] ->
+        {:ok, %ListAction{}}
 
-        Keyword.has_key?(switches, :list) and rest == [] ->
-          {:ok, %ListAction{}}
+      Keyword.has_key?(switches, :list) ->
+        {:error,
+         %ParseError{
+           module: __MODULE__,
+           message: "--list does not take positional args\nyou provided: #{Enum.join(rest, " ")}"
+         }}
 
-        Keyword.has_key?(switches, :list) ->
-          {:error,
-           %ParseError{
-             module: __MODULE__,
-             message: "--list does not take positional args\nyou provided: #{Enum.join(rest, " ")}"
-           }}
+      match?([_, _], rest) ->
+        [alias_name, full_name] = rest
+        {:ok, %SetAction{alias_name: alias_name, full_name: full_name}}
 
-        match?([_, _], rest) ->
-          [alias_name, full_name] = rest
-          {:ok, %SetAction{alias_name: alias_name, full_name: full_name}}
-
-        true ->
-          {:error,
-           %ParseError{
-             module: __MODULE__,
-             message: "you didn't provide valid <cluster_alias> and <cluster_full_name>"
-           }}
-      end
+      true ->
+        {:error,
+         %ParseError{
+           module: __MODULE__,
+           message: "you didn't provide valid <cluster_alias> and <cluster_full_name>"
+         }}
     end
   end
 
@@ -97,7 +90,8 @@ defmodule RR.CLI.Commands.Alias do
     """
   end
 
-  defp args_definition do
+  @impl true
+  def args_definition do
     [
       strict: [
         help: :boolean,

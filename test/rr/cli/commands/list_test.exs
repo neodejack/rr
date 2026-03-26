@@ -3,8 +3,8 @@ defmodule RR.CLI.Commands.ListTest do
 
   import Mox
 
+  alias RR.CLI
   alias RR.CLI.Commands.List
-  alias RR.CLI.Help
   alias RR.CLI.ParseError
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
@@ -34,17 +34,19 @@ defmodule RR.CLI.Commands.ListTest do
     :ok
   end
 
-  describe "parse/1" do
-    test "returns an action for empty argv" do
-      assert {:ok, %List{}} = List.parse([])
+  describe "build_action/2" do
+    test "returns an action for empty positional args" do
+      assert {:ok, %List{}} = List.build_action([], [])
     end
 
-    test "returns help for --help" do
-      assert {:ok, %Help{module: List}} = List.parse(["--help"])
+    test "centralizes help through RR.CLI.parse/1" do
+      assert {:ok, %RR.CLI.Help{module: List}} = CLI.parse(["list", "--help"])
     end
 
     test "rejects unexpected positional args" do
-      assert {:error, %ParseError{module: List, message: message}} = List.parse(["unexpected"])
+      assert {:error, %ParseError{module: List, message: message}} =
+               List.build_action([], ["unexpected"])
+
       assert message =~ "subcommands you provided are invalid"
       assert message =~ "unexpected"
     end

@@ -12,6 +12,10 @@ defmodule RR.CLITest do
       assert {:ok, %Help{module: nil}} = CLI.parse([])
     end
 
+    test "returns command help from the central dispatcher" do
+      assert {:ok, %Help{module: List}} = CLI.parse(["list", "--help"])
+    end
+
     test "returns invocation for command action" do
       assert {:ok, %Invocation{module: List, action: %List{}}} = CLI.parse(["list"])
     end

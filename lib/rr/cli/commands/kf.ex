@@ -2,8 +2,6 @@ defmodule RR.CLI.Commands.Kf do
   @moduledoc false
   @behaviour RR.CLI.Command
 
-  alias RR.CLI.ArgParser
-  alias RR.CLI.Help
   alias RR.CLI.Output
   alias RR.CLI.ParseError
   alias RR.Config.Paths
@@ -13,32 +11,27 @@ defmodule RR.CLI.Commands.Kf do
   defstruct [:cluster, sh?: false, new?: false]
 
   @impl true
-  def parse(args) do
-    with {:ok, switches, rest} <- ArgParser.parse(args, args_definition(), __MODULE__) do
-      cond do
-        Keyword.has_key?(switches, :help) ->
-          {:ok, %Help{module: __MODULE__}}
+  def build_action(switches, rest) do
+    cond do
+      rest == [] ->
+        {:error, %ParseError{module: __MODULE__, message: "you didn't provide <cluster_name_substring>"}}
 
-        rest == [] ->
-          {:error, %ParseError{module: __MODULE__, message: "you didn't provide <cluster_name_substring>"}}
+      match?([_], rest) ->
+        [cluster] = rest
 
-        match?([_], rest) ->
-          [cluster] = rest
+        {:ok,
+         %__MODULE__{
+           cluster: cluster,
+           sh?: Keyword.get(switches, :sh, false),
+           new?: Keyword.get(switches, :new, false)
+         }}
 
-          {:ok,
-           %__MODULE__{
-             cluster: cluster,
-             sh?: Keyword.get(switches, :sh, false),
-             new?: Keyword.get(switches, :new, false)
-           }}
-
-        true ->
-          {:error,
-           %ParseError{
-             module: __MODULE__,
-             message: ["you provided more than one clusters: ", Enum.intersperse(rest, ", ")]
-           }}
-      end
+      true ->
+        {:error,
+         %ParseError{
+           module: __MODULE__,
+           message: ["you provided more than one clusters: ", Enum.intersperse(rest, ", ")]
+         }}
     end
   end
 
@@ -70,7 +63,8 @@ defmodule RR.CLI.Commands.Kf do
     """
   end
 
-  defp args_definition do
+  @impl true
+  def args_definition do
     [
       strict: [
         help: :boolean,

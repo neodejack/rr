@@ -1,21 +1,22 @@
 defmodule RR.CLI.Commands.YoTest do
   use ExUnit.Case, async: true
 
+  alias RR.CLI
   alias RR.CLI.Commands.Yo
-  alias RR.CLI.Help
   alias RR.CLI.ParseError
 
-  describe "parse/1" do
-    test "returns an action for empty argv" do
-      assert {:ok, %Yo{}} = Yo.parse([])
+  describe "build_action/2" do
+    test "returns an action for empty positional args" do
+      assert {:ok, %Yo{}} = Yo.build_action([], [])
     end
 
-    test "returns help for --help" do
-      assert {:ok, %Help{module: Yo}} = Yo.parse(["--help"])
+    test "centralizes help through RR.CLI.parse/1" do
+      assert {:ok, %RR.CLI.Help{module: Yo}} = CLI.parse(["yo", "--help"])
     end
 
     test "rejects unexpected positional args" do
-      assert {:error, %ParseError{module: Yo, message: message}} = Yo.parse(["extra"])
+      assert {:error, %ParseError{module: Yo, message: message}} = Yo.build_action([], ["extra"])
+
       assert message =~ "doesn't take any args"
       assert message =~ "extra"
     end

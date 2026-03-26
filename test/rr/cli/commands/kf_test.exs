@@ -3,8 +3,8 @@ defmodule RR.CLI.Commands.KfTest do
 
   import Mox
 
+  alias RR.CLI
   alias RR.CLI.Commands.Kf
-  alias RR.CLI.Help
   alias RR.CLI.ParseError
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
@@ -50,23 +50,23 @@ defmodule RR.CLI.Commands.KfTest do
     :ok
   end
 
-  describe "parse/1" do
+  describe "build_action/2" do
     test "returns an action for cluster and switches" do
       assert {:ok, %Kf{cluster: "dev", sh?: true, new?: true}} =
-               Kf.parse(["dev", "--sh", "--new"])
+               Kf.build_action([sh: true, new: true], ["dev"])
     end
 
-    test "returns help for --help" do
-      assert {:ok, %Help{module: Kf}} = Kf.parse(["--help"])
+    test "centralizes help through RR.CLI.parse/1" do
+      assert {:ok, %RR.CLI.Help{module: Kf}} = CLI.parse(["kf", "--help"])
     end
 
     test "rejects missing cluster" do
       assert {:error, %ParseError{module: Kf, message: "you didn't provide <cluster_name_substring>"}} =
-               Kf.parse([])
+               Kf.build_action([], [])
     end
 
     test "rejects more than one cluster" do
-      assert {:error, %ParseError{module: Kf, message: message}} = Kf.parse(["dev", "prod"])
+      assert {:error, %ParseError{module: Kf, message: message}} = Kf.build_action([], ["dev", "prod"])
       assert IO.iodata_to_binary(message) =~ "you provided more than one clusters: dev, prod"
     end
   end

@@ -3,6 +3,7 @@ defmodule RR.CLI.Commands.LoginTest do
 
   import Mox
 
+  alias RR.CLI
   alias RR.CLI.Commands.Login
   alias RR.CLI.ParseError
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
@@ -49,17 +50,19 @@ defmodule RR.CLI.Commands.LoginTest do
     :ok
   end
 
-  describe "parse/1" do
-    test "returns an action for empty argv" do
-      assert {:ok, %Login{}} = Login.parse([])
+  describe "build_action/2" do
+    test "returns an action for empty positional args" do
+      assert {:ok, %Login{}} = Login.build_action([], [])
     end
 
-    test "returns help for --help" do
-      assert {:ok, %RR.CLI.Help{module: Login}} = Login.parse(["--help"])
+    test "centralizes help through RR.CLI.parse/1" do
+      assert {:ok, %RR.CLI.Help{module: Login}} = CLI.parse(["login", "--help"])
     end
 
     test "rejects extra args" do
-      assert {:error, %ParseError{module: Login, message: message}} = Login.parse(["extra"])
+      assert {:error, %ParseError{module: Login, message: message}} =
+               Login.build_action([], ["extra"])
+
       assert message =~ "doesn't take any args"
       assert message =~ "extra"
     end

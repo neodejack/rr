@@ -2,8 +2,6 @@ defmodule RR.CLI.Commands.Yo do
   @moduledoc false
   @behaviour RR.CLI.Command
 
-  alias RR.CLI.ArgParser
-  alias RR.CLI.Help
   alias RR.CLI.Output
   alias RR.CLI.ParseError
   alias RR.Config.Paths
@@ -11,22 +9,15 @@ defmodule RR.CLI.Commands.Yo do
   defstruct []
 
   @impl true
-  def parse(args) do
-    with {:ok, switches, rest} <- ArgParser.parse(args, args_definition(), __MODULE__) do
-      cond do
-        Keyword.has_key?(switches, :help) ->
-          {:ok, %Help{module: __MODULE__}}
-
-        rest != [] ->
-          {:error,
-           %ParseError{
-             module: __MODULE__,
-             message: "rr yo command doesn't take any args\nyou provided: #{Enum.join(rest, " ")}"
-           }}
-
-        true ->
-          {:ok, %__MODULE__{}}
-      end
+  def build_action(_switches, rest) do
+    if rest == [] do
+      {:ok, %__MODULE__{}}
+    else
+      {:error,
+       %ParseError{
+         module: __MODULE__,
+         message: "rr yo command doesn't take any args\nyou provided: #{Enum.join(rest, " ")}"
+       }}
     end
   end
 
@@ -52,7 +43,8 @@ defmodule RR.CLI.Commands.Yo do
     """
   end
 
-  defp args_definition do
+  @impl true
+  def args_definition do
     [
       strict: [
         help: :boolean

@@ -1,5 +1,6 @@
 defmodule RR.CLI do
   @moduledoc false
+  alias RR.CLI.ArgParser
   alias RR.CLI.Commands.Alias
   alias RR.CLI.Commands.Kf
   alias RR.CLI.Commands.List
@@ -62,16 +63,22 @@ defmodule RR.CLI do
   end
 
   defp parse_command(module, args) do
-    case module.parse(args) do
-      {:ok, %Help{} = help} ->
-        {:ok, help}
-
-      {:ok, action} ->
-        {:ok, %Invocation{module: module, action: action}}
-
-      {:error, %ParseError{} = error} ->
-        {:error, error}
+    with {:ok, switches, rest} <- ArgParser.parse(args, module.args_definition(), module) do
+      if Keyword.has_key?(switches, :help) do
+        {:ok, %Help{module: module}}
+      else
+        normalize_command_result(module, module.build_action(switches, rest))
+      end
     end
+  end
+
+  defp normalize_command_result(_module, {:ok, %Help{} = help}), do: {:ok, help}
+  defp normalize_command_result(module, {:ok, action}), do: {:ok, %Invocation{module: module, action: action}}
+  defp normalize_command_result(_module, {:error, %ParseError{} = error}), do: {:error, error}
+
+  defp normalize_command_result(module, other) do
+    raise ArgumentError,
+          "expected #{inspect(module)}.build_action/2 to return {:ok, action}, {:ok, %RR.CLI.Help{}}, or {:error, %RR.CLI.ParseError{}}, got: #{inspect(other)}"
   end
 
   defp render_version do

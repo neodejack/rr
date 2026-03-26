@@ -3,10 +3,10 @@ defmodule RR.CLI.Commands.AliasTest do
 
   import Mox
 
+  alias RR.CLI
   alias RR.CLI.Commands.Alias
   alias RR.CLI.Commands.Alias.ListAction
   alias RR.CLI.Commands.Alias.SetAction
-  alias RR.CLI.Help
   alias RR.CLI.ParseError
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
   alias RR.Settings
@@ -28,23 +28,23 @@ defmodule RR.CLI.Commands.AliasTest do
     :ok
   end
 
-  describe "parse/1" do
-    test "returns list action for --list" do
-      assert {:ok, %ListAction{}} = Alias.parse(["--list"])
+  describe "build_action/2" do
+    test "returns list action for --list switch" do
+      assert {:ok, %ListAction{}} = Alias.build_action([list: true], [])
     end
 
     test "returns set action for alias pair" do
       assert {:ok, %SetAction{alias_name: "prod", full_name: "production"}} =
-               Alias.parse(["prod", "production"])
+               Alias.build_action([], ["prod", "production"])
     end
 
-    test "returns help for --help" do
-      assert {:ok, %Help{module: Alias}} = Alias.parse(["--help"])
+    test "centralizes help through RR.CLI.parse/1" do
+      assert {:ok, %RR.CLI.Help{module: Alias}} = CLI.parse(["alias", "--help"])
     end
 
     test "rejects --list with positional args" do
       assert {:error, %ParseError{module: Alias, message: message}} =
-               Alias.parse(["--list", "extra"])
+               Alias.build_action([list: true], ["extra"])
 
       assert message =~ "--list does not take positional args"
       assert message =~ "extra"
