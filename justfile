@@ -1,3 +1,5 @@
+mod dev
+
 list:
   @just --list --list-heading $'Cool stuff\n' --list-prefix '■ '
 upgrade_rr:
