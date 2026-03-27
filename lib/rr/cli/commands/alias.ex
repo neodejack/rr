@@ -2,8 +2,8 @@ defmodule RR.CLI.Commands.Alias do
   @moduledoc false
   @behaviour RR.CLI.Command
 
-  alias RR.CLI.Output
   alias RR.CLI.ParseError
+  alias RR.Providers.Terminal
   alias RR.Services.Aliases
 
   defmodule ListAction do
@@ -53,13 +53,13 @@ defmodule RR.CLI.Commands.Alias do
     aliases = Aliases.list()
 
     if map_size(aliases) > 0 do
-      Output.info_stdout("these aliases are found:\n")
+      Terminal.info_stdout("these aliases are found:\n")
 
       aliases
       |> Enum.map(fn {alias_name, full_name} -> "  #{alias_name} -> #{full_name}\n" end)
-      |> Output.info_stdout()
+      |> Terminal.info_stdout()
     else
-      Output.info_stdout("no aliases set")
+      Terminal.info_stdout("no aliases set")
     end
 
     :ok
@@ -67,7 +67,7 @@ defmodule RR.CLI.Commands.Alias do
 
   def execute(%SetAction{alias_name: alias_name, full_name: full_name}) do
     Aliases.set(alias_name, full_name)
-    Output.info_stdout("alias: #{alias_name} -> #{full_name} ")
+    Terminal.info_stdout("alias: #{alias_name} -> #{full_name} ")
     :ok
   end
 

@@ -2,9 +2,9 @@ defmodule RR.CLI.Commands.Kf do
   @moduledoc false
   @behaviour RR.CLI.Command
 
-  alias RR.CLI.Output
   alias RR.CLI.ParseError
   alias RR.Config.Paths
+  alias RR.Providers.Terminal
   alias RR.Services.Kubeconfigs
 
   @enforce_keys [:cluster]
@@ -80,10 +80,10 @@ defmodule RR.CLI.Commands.Kf do
   defp output_kubeconfig_path(kubconfig_path, true) do
     Paths.sh_template_path()
     |> EEx.eval_file(kf_path: kubconfig_path)
-    |> Output.info_stdout()
+    |> Terminal.info_stdout()
   end
 
   defp output_kubeconfig_path(kubconfig_path, false) do
-    Output.info_stdout(kubconfig_path)
+    Terminal.info_stdout(kubconfig_path)
   end
 end

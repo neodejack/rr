@@ -2,8 +2,8 @@ defmodule RR.CLI.Commands.List do
   @moduledoc false
   @behaviour RR.CLI.Command
 
-  alias RR.CLI.Output
   alias RR.CLI.ParseError
+  alias RR.Providers.Terminal
   alias RR.Services.Clusters
 
   defstruct []
@@ -83,6 +83,6 @@ defmodule RR.CLI.Commands.List do
           [header, separator | data]
       end
 
-    Output.info_stdout(Enum.join(lines, "\n"))
+    Terminal.info_stdout(Enum.join(lines, "\n"))
   end
 end

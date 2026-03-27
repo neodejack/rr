@@ -6,9 +6,9 @@ defmodule RR.CLI.Commands.Login do
   """
   @behaviour RR.CLI.Command
 
-  alias RR.CLI.Output
   alias RR.CLI.ParseError
   alias RR.Providers.Rancher
+  alias RR.Providers.Terminal
   alias RR.Services.Auth
 
   defstruct []
@@ -33,7 +33,7 @@ defmodule RR.CLI.Commands.Login do
     with {:ok, auth} <- Auth.ensure_valid_auth(),
          {:ok, token_info} <- Rancher.get_token_info(auth),
          true <-
-           Owl.IO.confirm(
+           Terminal.confirm(
              message: [
                "you already have a valid auth config with description '#{token_info.description}',",
                "are you sure you want to overwrite it?"
@@ -77,7 +77,7 @@ defmodule RR.CLI.Commands.Login do
     case Auth.check_auth_validity(auth) do
       {:ok, auth} ->
         Auth.put_auth(auth)
-        Output.info_stdout("token successfully validated and saved")
+        Terminal.info_stdout("token successfully validated and saved")
         :ok
 
       {:error, :unauthorized, reason} ->
@@ -92,8 +92,8 @@ defmodule RR.CLI.Commands.Login do
   end
 
   defp prompt do
-    hostname = Owl.IO.input(label: "rancher hostname")
-    token = Owl.IO.input(label: "rancher token (in the form of token-xxxx:xxxxxx)", secret: true)
+    hostname = Terminal.input(label: "rancher hostname")
+    token = Terminal.input(label: "rancher token (in the form of token-xxxx:xxxxxx)", secret: true)
 
     %Auth{rancher_hostname: hostname, rancher_token: token}
   end

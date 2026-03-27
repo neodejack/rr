@@ -2,7 +2,7 @@ defmodule RR.Providers.Rancher.Impl do
   @moduledoc false
   @behaviour RR.Providers.Rancher
 
-  alias RR.CLI.Output
+  alias RR.Providers.Terminal
   alias RR.Services.Auth
   alias RR.Services.Clusters.Cluster
 
@@ -21,7 +21,7 @@ defmodule RR.Providers.Rancher.Impl do
           end
 
         non_200_resp ->
-          Output.error(inspect(non_200_resp))
+          Terminal.error(inspect(non_200_resp))
           {:error, "http error for #{url}"}
       end
     else

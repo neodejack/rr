@@ -1,8 +1,8 @@
 defmodule RR.Services.Kubeconfigs do
   @moduledoc false
-  alias RR.CLI.Output
   alias RR.Config.Paths
   alias RR.Providers.Rancher
+  alias RR.Providers.Terminal
   alias RR.Services.Aliases
   alias RR.Services.Auth
   alias RR.Services.Clusters
@@ -21,7 +21,7 @@ defmodule RR.Services.Kubeconfigs do
 
   def ensure_valid_kubeconfig(cluster, false) do
     if kf_valid?(cluster) do
-      Output.info_stderr("found existing valid kubeconifg: #{kubeconfig_file_path(cluster)}")
+      Terminal.info_stderr("found existing valid kubeconifg: #{kubeconfig_file_path(cluster)}")
 
       {:ok, kubeconfig_file_path(cluster)}
     else
@@ -34,7 +34,7 @@ defmodule RR.Services.Kubeconfigs do
   end
 
   def ensure_valid_kubeconfig(cluster, true) do
-    Output.info_stderr("overwriting existing valid kubeconfig: #{kubeconfig_file_path(cluster)}")
+    Terminal.info_stderr("overwriting existing valid kubeconfig: #{kubeconfig_file_path(cluster)}")
 
     with {:ok, auth} <- Auth.ensure_valid_auth() do
       auth
@@ -58,7 +58,7 @@ defmodule RR.Services.Kubeconfigs do
     with :ok <- File.mkdir_p(Paths.kubeconfig_dir()),
          kb_path = kubeconfig_file_path(cluster),
          :ok <- File.write(kb_path, cluster.kubeconfig) do
-      Output.info_stderr(["new kubeconfig is saved to ", kb_path])
+      Terminal.info_stderr(["new kubeconfig is saved to ", kb_path])
       {:ok, kb_path}
     else
       {:error, err} -> {:error, ["error when saving kubeconfig:\n", err]}

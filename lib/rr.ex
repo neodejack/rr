@@ -1,7 +1,7 @@
 defmodule RR do
   @moduledoc false
 
-  alias RR.CLI.Output
+  alias RR.Providers.Terminal
 
   def main do
     code =
@@ -11,12 +11,12 @@ defmodule RR do
             0
 
           {:error, msg} ->
-            Output.error(msg)
+            Terminal.error(msg)
             1
         end
       rescue
         e ->
-          Output.error(Exception.message(e))
+          Terminal.error(Exception.message(e))
           1
       end
 

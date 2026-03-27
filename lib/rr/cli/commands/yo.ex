@@ -2,9 +2,9 @@ defmodule RR.CLI.Commands.Yo do
   @moduledoc false
   @behaviour RR.CLI.Command
 
-  alias RR.CLI.Output
   alias RR.CLI.ParseError
   alias RR.Config.Paths
+  alias RR.Providers.Terminal
 
   defstruct []
 
@@ -25,7 +25,7 @@ defmodule RR.CLI.Commands.Yo do
   def execute(%__MODULE__{}) do
     Paths.yo_template_path()
     |> EEx.eval_file()
-    |> Output.info_stdout()
+    |> Terminal.info_stdout()
 
     :ok
   end

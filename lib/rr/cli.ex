@@ -8,8 +8,8 @@ defmodule RR.CLI do
   alias RR.CLI.Commands.Yo
   alias RR.CLI.Help
   alias RR.CLI.Invocation
-  alias RR.CLI.Output
   alias RR.CLI.ParseError
+  alias RR.Providers.Terminal
 
   defmodule VersionAction do
     @moduledoc false
@@ -82,12 +82,12 @@ defmodule RR.CLI do
   end
 
   defp render_version do
-    Output.info_stdout(Application.spec(:rr)[:vsn])
+    Terminal.info_stdout(Application.spec(:rr)[:vsn])
     :ok
   end
 
   defp render_help(%Help{module: nil}) do
-    Output.info_stdout("""
+    Terminal.info_stdout("""
     playing with rancher generated kubeconfigs
 
     COMMANDS
@@ -98,17 +98,17 @@ defmodule RR.CLI do
       yo        : #{Yo.summary()}
     """)
 
-    Output.info_stdout(["current version: ", Application.spec(:rr)[:vsn]])
+    Terminal.info_stdout(["current version: ", Application.spec(:rr)[:vsn]])
     :ok
   end
 
   defp render_help(%Help{module: module}) do
-    Output.info_stdout(module.help())
+    Terminal.info_stdout(module.help())
     :ok
   end
 
   defp render_parse_error(%ParseError{module: module, message: message}) when not is_nil(module) do
-    Output.info_stdout(module.help())
+    Terminal.info_stdout(module.help())
     {:error, message}
   end
 

@@ -1,6 +1,6 @@
 defmodule RR.Services.Aliases do
   @moduledoc false
-  alias RR.CLI.Output
+  alias RR.Providers.Terminal
   alias RR.Settings
 
   def set(alias_name, full_name) do
@@ -13,7 +13,7 @@ defmodule RR.Services.Aliases do
         alias_name
 
       full_name ->
-        Output.info_stderr("resolving alias: #{alias_name} -> #{full_name} ")
+        Terminal.info_stderr("resolving alias: #{alias_name} -> #{full_name} ")
         full_name
     end
   end
