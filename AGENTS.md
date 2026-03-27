@@ -1,5 +1,10 @@
 # Repository Guidelines
 
+## Design Documents
+- Before planning a code change, read `docs/DESIGN.md`.
+- While coding, if `docs/DESIGN.md` points to an area-specific document for the code you are touching, read that document and follow it.
+- Treat `AGENTS.md` and the relevant files under `docs/design/` as complementary instructions.
+
 ## Project Structure & Module Organization
 - `lib/` contains the Elixir source. CLI entrypoint is `lib/rr.ex`; command modules live under `lib/cmds/`; configuration helpers are under `lib/config/`.
 - `priv/templates/` holds EEx templates (e.g., `sh.eex` for `rr kf --sh`).
