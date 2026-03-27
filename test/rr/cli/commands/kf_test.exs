@@ -9,12 +9,14 @@ defmodule RR.CLI.Commands.KfTest do
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
+  alias RR.Providers.Terminal.Mock, as: TerminalMock
   alias RR.Services.Clusters.Cluster
   alias RR.Settings
 
   setup :verify_on_exit!
 
   setup do
+    TerminalMock.reset()
     store = start_supervised!({Agent, fn -> %{} end}, id: make_ref())
 
     stub(SettingsStoreMock, :read, fn ->
@@ -81,13 +83,11 @@ defmodule RR.CLI.Commands.KfTest do
         {:ok, %{cluster | kubeconfig: "apiVersion: v1\nclusters: []\n"}}
       end)
 
-      output =
-        ExUnit.CaptureIO.capture_io(fn ->
-          assert :ok = Kf.execute(%Kf{cluster: "dev", new?: true, sh?: true})
-        end)
+      assert :ok = Kf.execute(%Kf{cluster: "dev", new?: true, sh?: true})
 
-      assert output =~ "export KUBECONFIG="
-      assert output =~ "dev-cluster"
+      assert TerminalMock.stdout() =~ "export KUBECONFIG="
+      assert TerminalMock.stdout() =~ "dev-cluster"
+      assert TerminalMock.stderr() =~ "new kubeconfig is saved to"
       assert File.exists?(Path.join([System.get_env("RR_HOME"), "kubeconfigs", "dev-cluster"]))
     end
   end

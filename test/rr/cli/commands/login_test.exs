@@ -9,6 +9,7 @@ defmodule RR.CLI.Commands.LoginTest do
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
+  alias RR.Providers.Terminal.Mock, as: TerminalMock
   alias RR.Services.Auth
   alias RR.Settings
 
@@ -21,6 +22,7 @@ defmodule RR.CLI.Commands.LoginTest do
   setup :verify_on_exit!
 
   setup do
+    TerminalMock.reset()
     store = start_supervised!({Agent, fn -> %{} end}, id: make_ref())
     cache = start_supervised!({Agent, fn -> %{} end}, id: make_ref())
 
@@ -74,13 +76,11 @@ defmodule RR.CLI.Commands.LoginTest do
       Settings.put("rancher_token", @token_invalid)
 
       expect(RancherMock, :get_token_info, 2, &get_token_info_mock/1)
+      assert :ok = TerminalMock.push_inputs([@hostname, @token_valid])
 
-      {stderr, _stdout} =
-        ExUnit.CaptureIO.with_io([input: "#{@hostname}\n#{@token_valid}\n"], fn ->
-          ExUnit.CaptureIO.capture_io(:stderr, fn -> Login.execute(%Login{}) end)
-        end)
+      assert :ok = Login.execute(%Login{})
 
-      refute stderr =~ "To input a valid token, run the command below"
+      refute TerminalMock.stderr() =~ "To input a valid token, run the command below"
     end
 
     test "valid token expiring soon prints warning" do
@@ -88,13 +88,11 @@ defmodule RR.CLI.Commands.LoginTest do
       Settings.put("rancher_token", @token_expiring_in_7_days)
 
       expect(RancherMock, :get_token_info, 2, &get_token_info_mock/1)
+      assert :ok = TerminalMock.push_confirms([false])
 
-      {stderr, _stdout} =
-        ExUnit.CaptureIO.with_io([input: "n\n"], fn ->
-          ExUnit.CaptureIO.capture_io(:stderr, fn -> Login.execute(%Login{}) end)
-        end)
+      assert :ok = Login.execute(%Login{})
 
-      assert stderr =~ "warning: rancher token will expire in less than 7 days."
+      assert TerminalMock.stderr() =~ "warning: rancher token will expire in less than 7 days."
     end
 
     test "valid token not expiring soon warns about existing config" do
@@ -102,13 +100,11 @@ defmodule RR.CLI.Commands.LoginTest do
       Settings.put("rancher_token", @token_valid)
 
       expect(RancherMock, :get_token_info, 2, &get_token_info_mock/1)
+      assert :ok = TerminalMock.push_confirms([false])
 
-      {:ok, stdout} =
-        ExUnit.CaptureIO.with_io([input: "n\n"], fn ->
-          Login.execute(%Login{})
-        end)
+      assert :ok = Login.execute(%Login{})
 
-      assert stdout =~ "you already have a valid auth config with description"
+      assert TerminalMock.stdout() =~ "you already have a valid auth config with description"
     end
 
     test "existing valid token with transient api error returns error" do
@@ -128,14 +124,11 @@ defmodule RR.CLI.Commands.LoginTest do
         {:error, :unknown, "rancher api error - GET #{@hostname}/v3/tokens/token-valid\nboom"}
       end)
 
-      result =
-        ExUnit.CaptureIO.capture_io([input: "#{@hostname}\n#{@token_valid}\n"], fn ->
-          send(self(), {:result, Login.execute(%Login{})})
-        end)
+      assert :ok = TerminalMock.push_inputs([@hostname, @token_valid])
 
-      assert_received {:result, {:error, msg}}
+      assert {:error, msg} = Login.execute(%Login{})
       assert msg =~ "token validation failed"
-      assert result =~ "rancher hostname"
+      assert TerminalMock.stdout() =~ "rancher hostname"
       assert Settings.get("rancher_hostname") == nil
       assert Settings.get("rancher_token") == nil
       assert :miss == AuthCacheMock.get({@hostname, @token_valid})

@@ -6,6 +6,11 @@ defmodule RR.CLITest do
   alias RR.CLI.Help
   alias RR.CLI.Invocation
   alias RR.CLI.ParseError
+  alias RR.Providers.Terminal.Mock, as: TerminalMock
+
+  setup do
+    TerminalMock.reset()
+  end
 
   describe "parse/1" do
     test "returns root help for empty argv" do
@@ -28,32 +33,23 @@ defmodule RR.CLITest do
 
   describe "run/1" do
     test "renders command help from the central dispatcher" do
-      output =
-        ExUnit.CaptureIO.capture_io(fn ->
-          assert :ok = CLI.run(["list", "--help"])
-        end)
+      assert :ok = CLI.run(["list", "--help"])
 
-      assert output =~ "list rancher clusters"
-      assert output =~ "rr list"
+      assert TerminalMock.stdout() =~ "list rancher clusters"
+      assert TerminalMock.stdout() =~ "rr list"
     end
 
     test "renders command help before returning parse errors" do
-      output =
-        ExUnit.CaptureIO.capture_io(fn ->
-          assert {:error, message} = CLI.run(["list", "unexpected"])
-          assert message =~ "the subcommands you provided are invalid"
-        end)
+      assert {:error, message} = CLI.run(["list", "unexpected"])
+      assert message =~ "the subcommands you provided are invalid"
 
-      assert output =~ "list rancher clusters"
+      assert TerminalMock.stdout() =~ "list rancher clusters"
     end
 
     test "renders version from the central dispatcher" do
-      output =
-        ExUnit.CaptureIO.capture_io(fn ->
-          assert :ok = CLI.run(["--version"])
-        end)
+      assert :ok = CLI.run(["--version"])
 
-      assert output =~ to_string(Application.spec(:rr)[:vsn])
+      assert TerminalMock.stdout() =~ to_string(Application.spec(:rr)[:vsn])
     end
   end
 end

@@ -19,7 +19,7 @@ After this change, all terminal interaction will live behind a single provider b
 - [x] (2026-03-27 04:09Z) Added `RR.Providers.Terminal` and `RR.Providers.Terminal.Impl` with the shared provider selector, preserving the existing stdout ANSI formatting and Owl-backed prompt behavior. Verified with `mix format --check-formatted` and `mix compile --warnings-as-errors`.
 - [x] (2026-03-27 04:14Z) Added `RR.Providers.Terminal.Mock` with process-local transcript collection plus scripted input and confirmation queues, and verified the helper API with `mix test test/rr/providers/terminal/mock_test.exs`.
 - [x] (2026-03-27 04:18Z) Migrated every active CLI and service call site from `RR.CLI.Output` and direct Owl prompts to `RR.Providers.Terminal`, removed `lib/rr/cli/output.ex`, and verified with `rg -n "RR\\.CLI\\.Output|Owl\\.IO\\.(input|confirm)" lib`, `mix format --check-formatted`, and `mix compile --warnings-as-errors`.
-- [ ] Rewrite command and auth tests to use the collector instead of `ExUnit.CaptureIO`, then run formatting, compilation, focused tests, and the full suite.
+- [x] (2026-03-27 04:23Z) Rewrote the CLI command and dispatcher tests to use `RR.Providers.Terminal.Mock` transcripts and scripted prompt queues instead of `ExUnit.CaptureIO`, then verified with `mix format --check-formatted`, `mix compile --warnings-as-errors`, the six focused CLI test commands, `rg -n "RR\\.CLI\\.Output|ExUnit\\.CaptureIO|Owl\\.IO\\.(input|confirm)" lib test`, and `mix test` (`40 tests, 0 failures`).
 
 
 ## Surprises & Discoveries
@@ -41,6 +41,9 @@ After this change, all terminal interaction will live behind a single provider b
 
 - Observation: Once callers are rewired, the only remaining direct `Owl.IO.input/1` and `Owl.IO.confirm/1` calls in `lib/` live in `RR.Providers.Terminal.Impl`, which is the exact containment boundary the refactor wanted.
   Evidence: `rg -n "RR\\.CLI\\.Output|Owl\\.IO\\.(input|confirm)" lib` now returns only `lib/rr/providers/terminal/impl.ex`.
+
+- Observation: The full suite grew from the 37-test baseline to 40 tests because the terminal collector now has dedicated coverage, and the enlarged suite still passes cleanly after the migration.
+  Evidence: `mix test` on 2026-03-27 finished with `40 tests, 0 failures`, while the draft baseline recorded `37 tests, 0 failures`.
 
 - Observation: Output-related test friction is real today. The current suite uses `ExUnit.CaptureIO` in the dispatcher tests and in the `alias`, `kf`, `list`, `login`, and `yo` command tests.
   Evidence: `rg -n "capture_io|with_io" test` returns matches in `test/rr/cli_test.exs` and all command test files except `test/rr/services/auth_test.exs`.
@@ -86,10 +89,14 @@ After this change, all terminal interaction will live behind a single provider b
   Rationale: Once all active callers target `RR.Providers.Terminal`, keeping the old helper only increases ambiguity about which boundary is authoritative. Removing it in the same milestone makes the architecture end state explicit and lets the cleanup search become a real acceptance check.
   Date/Author: 2026-03-27 / Codex
 
+- Decision: Migrate the existing CLI tests directly to `RR.Providers.Terminal.Mock` rather than introducing another wrapper test helper layer first.
+  Rationale: The mock already exposes the small, explicit API the plan called for. Using it directly keeps test intent obvious, avoids another abstraction to maintain, and still leaves room to extract shared helpers later if the suite grows.
+  Date/Author: 2026-03-27 / Codex
+
 
 ## Outcomes & Retrospective
 
-Implementation is now underway. The first three milestones are complete: the repository has a real terminal provider boundary, a production implementation, a deterministic collector mock, and no remaining active callers of `RR.CLI.Output`. The architecture is now in the intended end state for application code. The remaining work is entirely in the test suite: replace `ExUnit.CaptureIO` and `with_io` usage with collector assertions, then run the full validation gate.
+The refactor is complete. The repository now has one terminal side-effect boundary, `RR.Providers.Terminal`, with the production implementation containing the only direct Owl and `IO.puts` calls and the test implementation collecting deterministic transcripts. The command and dispatcher tests now assert through that collector instead of Elixir global IO capture, and the full suite passes with expanded provider coverage. No blockers remain from this plan. The main lesson is that the existing provider-selection pattern was sufficient for terminal IO too, so the architectural improvement landed without any new configuration mechanism or test-only dependency.
 
 
 ## Context and Orientation
@@ -241,3 +248,4 @@ Plan revision note: 2026-03-27 04:08Z. Moved the ExecPlan into `docs/exec-plans/
 Plan revision note: 2026-03-27 04:09Z. Marked the provider-behaviour milestone complete after adding the new terminal provider modules and verifying formatting plus compilation, so the plan reflects the exact landed baseline for the next migration step.
 Plan revision note: 2026-03-27 04:14Z. Marked the collector milestone complete after adding `RR.Providers.Terminal.Mock`, validating the helper API in a dedicated test file, and recording the process-local state decision that keeps async tests isolated.
 Plan revision note: 2026-03-27 04:18Z. Marked the caller-migration milestone complete after rewiring all active terminal IO usage to `RR.Providers.Terminal`, removing `RR.CLI.Output`, and confirming the production provider is the only remaining place that touches Owl directly.
+Plan revision note: 2026-03-27 04:23Z. Marked the test-migration milestone complete after replacing `ExUnit.CaptureIO` usage with collector assertions, rerunning the full validation sequence, and recording the final outcome plus the expanded 40-test passing suite.

@@ -4,6 +4,11 @@ defmodule RR.CLI.Commands.YoTest do
   alias RR.CLI
   alias RR.CLI.Commands.Yo
   alias RR.CLI.ParseError
+  alias RR.Providers.Terminal.Mock, as: TerminalMock
+
+  setup do
+    TerminalMock.reset()
+  end
 
   describe "build_action/2" do
     test "returns an action for empty positional args" do
@@ -23,9 +28,9 @@ defmodule RR.CLI.Commands.YoTest do
   end
 
   test "prints shell integration snippet" do
-    output = ExUnit.CaptureIO.capture_io(fn -> Yo.execute(%Yo{}) end)
+    assert :ok = Yo.execute(%Yo{})
 
-    assert output =~ "yo()"
-    assert output =~ "rr kf --sh"
+    assert TerminalMock.stdout() =~ "yo()"
+    assert TerminalMock.stdout() =~ "rr kf --sh"
   end
 end

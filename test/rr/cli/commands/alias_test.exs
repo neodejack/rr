@@ -9,11 +9,13 @@ defmodule RR.CLI.Commands.AliasTest do
   alias RR.CLI.Commands.Alias.SetAction
   alias RR.CLI.ParseError
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
+  alias RR.Providers.Terminal.Mock, as: TerminalMock
   alias RR.Settings
 
   setup :verify_on_exit!
 
   setup do
+    TerminalMock.reset()
     store = start_supervised!({Agent, fn -> %{} end}, id: make_ref())
 
     stub(SettingsStoreMock, :read, fn ->
@@ -53,25 +55,19 @@ defmodule RR.CLI.Commands.AliasTest do
 
   describe "execute/1" do
     test "writes an alias for set action" do
-      output =
-        ExUnit.CaptureIO.capture_io(fn ->
-          assert :ok = Alias.execute(%SetAction{alias_name: "prod", full_name: "production"})
-        end)
+      assert :ok = Alias.execute(%SetAction{alias_name: "prod", full_name: "production"})
 
-      assert output =~ "alias: prod -> production"
+      assert TerminalMock.stdout() =~ "alias: prod -> production"
       assert Settings.get_in(["alias", "prod"]) == "production"
     end
 
     test "renders alias list for list action" do
       Settings.put_in([Access.key("alias", %{}), "prod"], "production")
 
-      output =
-        ExUnit.CaptureIO.capture_io(fn ->
-          assert :ok = Alias.execute(%ListAction{})
-        end)
+      assert :ok = Alias.execute(%ListAction{})
 
-      assert output =~ "these aliases are found"
-      assert output =~ "prod -> production"
+      assert TerminalMock.stdout() =~ "these aliases are found"
+      assert TerminalMock.stdout() =~ "prod -> production"
     end
   end
 end

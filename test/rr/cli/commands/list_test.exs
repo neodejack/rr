@@ -9,11 +9,13 @@ defmodule RR.CLI.Commands.ListTest do
   alias RR.Providers.AuthCache.Mock, as: AuthCacheMock
   alias RR.Providers.Rancher.Mock, as: RancherMock
   alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
+  alias RR.Providers.Terminal.Mock, as: TerminalMock
   alias RR.Settings
 
   setup :verify_on_exit!
 
   setup do
+    TerminalMock.reset()
     store = start_supervised!({Agent, fn -> %{} end}, id: make_ref())
 
     stub(SettingsStoreMock, :read, fn ->
@@ -63,14 +65,14 @@ defmodule RR.CLI.Commands.ListTest do
         {:ok, clusters}
       end)
 
-      output = ExUnit.CaptureIO.capture_io(fn -> List.execute(%List{}) end)
+      assert :ok = List.execute(%List{})
 
-      assert output =~ "NAME"
-      assert output =~ "ID"
-      assert output =~ "dev"
-      assert output =~ "production"
-      assert output =~ "c-1"
-      assert output =~ "c-9999"
+      assert TerminalMock.stdout() =~ "NAME"
+      assert TerminalMock.stdout() =~ "ID"
+      assert TerminalMock.stdout() =~ "dev"
+      assert TerminalMock.stdout() =~ "production"
+      assert TerminalMock.stdout() =~ "c-1"
+      assert TerminalMock.stdout() =~ "c-9999"
     end
 
     test "renders empty state when no clusters returned" do
@@ -78,10 +80,10 @@ defmodule RR.CLI.Commands.ListTest do
         {:ok, []}
       end)
 
-      output = ExUnit.CaptureIO.capture_io(fn -> List.execute(%List{}) end)
+      assert :ok = List.execute(%List{})
 
-      assert output =~ "NAME"
-      assert output =~ "no clusters found"
+      assert TerminalMock.stdout() =~ "NAME"
+      assert TerminalMock.stdout() =~ "no clusters found"
     end
   end
 end
