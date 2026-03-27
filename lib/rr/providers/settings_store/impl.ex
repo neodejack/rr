@@ -1,4 +1,4 @@
-defmodule RR.Providers.SettingsStore.File do
+defmodule RR.Providers.SettingsStore.Impl do
   @moduledoc false
   @behaviour RR.Providers.SettingsStore
 

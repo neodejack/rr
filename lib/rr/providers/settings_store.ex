@@ -7,5 +7,5 @@ defmodule RR.Providers.SettingsStore do
   @callback write(map()) :: :ok | {:error, term()}
   def write(config), do: impl().write(config)
 
-  defp impl, do: Module.concat([__MODULE__, Application.get_env(:rr, :external_bound, File)])
+  defp impl, do: Module.concat([__MODULE__, Application.get_env(:rr, :external_bound, Impl)])
 end

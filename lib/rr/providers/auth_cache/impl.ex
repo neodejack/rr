@@ -1,4 +1,4 @@
-defmodule RR.Providers.AuthCache.ETS do
+defmodule RR.Providers.AuthCache.Impl do
   @moduledoc false
   @behaviour RR.Providers.AuthCache
 

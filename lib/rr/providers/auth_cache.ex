@@ -10,5 +10,5 @@ defmodule RR.Providers.AuthCache do
   @callback clear() :: :ok
   def clear, do: impl().clear()
 
-  defp impl, do: Module.concat([__MODULE__, Application.get_env(:rr, :external_bound, ETS)])
+  defp impl, do: Module.concat([__MODULE__, Application.get_env(:rr, :external_bound, Impl)])
 end
