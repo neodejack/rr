@@ -17,7 +17,7 @@ After this change, all terminal interaction will live behind a single provider b
 - [x] (2026-03-27 10:11Z) Drafted this ExecPlan from the current repository state, the agreed design from the discussion, and the repository guidance in `docs/PLAN.md`.
 - [x] (2026-03-27 04:08Z) Moved this ExecPlan from `docs/exec-plans/todo/` to `docs/exec-plans/active/`, re-read `docs/PLAN.md`, and re-inspected every direct terminal call site plus the existing provider pattern before editing code.
 - [x] (2026-03-27 04:09Z) Added `RR.Providers.Terminal` and `RR.Providers.Terminal.Impl` with the shared provider selector, preserving the existing stdout ANSI formatting and Owl-backed prompt behavior. Verified with `mix format --check-formatted` and `mix compile --warnings-as-errors`.
-- [ ] Add the collector-backed `RR.Providers.Terminal.Mock` implementation and test helper API for scripted inputs plus transcript inspection.
+- [x] (2026-03-27 04:14Z) Added `RR.Providers.Terminal.Mock` with process-local transcript collection plus scripted input and confirmation queues, and verified the helper API with `mix test test/rr/providers/terminal/mock_test.exs`.
 - [ ] Migrate CLI and service call sites away from `RR.CLI.Output` and direct `Owl.IO.*` calls to the new provider boundary.
 - [ ] Rewrite command and auth tests to use the collector instead of `ExUnit.CaptureIO`, then run formatting, compilation, focused tests, and the full suite.
 
@@ -35,6 +35,9 @@ After this change, all terminal interaction will live behind a single provider b
 
 - Observation: The initial provider addition is safe to land independently before any caller migration because the new modules compile without changing the existing command path.
   Evidence: `mix compile --warnings-as-errors` after adding `lib/rr/providers/terminal.ex` and `lib/rr/providers/terminal/impl.ex` completed successfully on 2026-03-27.
+
+- Observation: The command paths under test execute terminal side effects in the test process today, so a process-local collector is enough to isolate async cases without introducing a shared Agent or ETS table.
+  Evidence: The command tests call `RR.CLI.run/1` or `module.execute/1` directly, and `mix test test/rr/providers/terminal/mock_test.exs` passed with `use ExUnit.Case, async: true`.
 
 - Observation: Output-related test friction is real today. The current suite uses `ExUnit.CaptureIO` in the dispatcher tests and in the `alias`, `kf`, `list`, `login`, and `yo` command tests.
   Evidence: `rg -n "capture_io|with_io" test` returns matches in `test/rr/cli_test.exs` and all command test files except `test/rr/services/auth_test.exs`.
@@ -72,10 +75,14 @@ After this change, all terminal interaction will live behind a single provider b
   Rationale: The only current prompt caller already passes Owl keyword options, and preserving that surface keeps the first migration mechanical while still isolating the side effect behind the provider boundary.
   Date/Author: 2026-03-27 / Codex
 
+- Decision: Implement the collector mock with process-local state and rendered transcripts instead of a shared server.
+  Rationale: The terminal side effects under test run synchronously in the current test process, so `Process.put/2` keeps async tests isolated with less setup and no global cleanup race. The collector still records user-visible transcript strings, which matches the testing goal better than recording raw callback arguments.
+  Date/Author: 2026-03-27 / Codex
+
 
 ## Outcomes & Retrospective
 
-Implementation is now underway. The first milestone is complete: the repository now has a real `RR.Providers.Terminal` boundary and a production implementation that preserves the old direct-IO behavior while leaving existing callers untouched. That made the architecture extension low-risk and kept compilation green. Success still means the CLI behaves the same for users while tests stop depending on `ExUnit.CaptureIO`; the main remaining risk is designing the collector so it is deterministic across async and non-async tests without becoming more complex than the behavior it is meant to isolate.
+Implementation is now underway. The first two milestones are complete: the repository now has a real `RR.Providers.Terminal` boundary, a production implementation, and a deterministic collector-backed test implementation with a small helper API. That removed the architecture risk around introducing the new provider and established a concrete testing seam before any caller rewiring. The next risk is migration accuracy: every `RR.CLI.Output` and direct `Owl.IO.*` call site now needs to move over without changing user-visible behavior.
 
 
 ## Context and Orientation
@@ -225,3 +232,4 @@ This plan does not add new external dependencies. It continues using the existin
 Plan revision note: 2026-03-27 10:11Z. Created this ExecPlan directly from the current codebase and the user-approved design discussion because the repository does not contain a matching `docs/product-specs/` source document for this refactor.
 Plan revision note: 2026-03-27 04:08Z. Moved the ExecPlan into `docs/exec-plans/active/`, refreshed the repository guidance and current call-site inventory, and recorded the first implementation decisions so the document stays restartable while code changes begin.
 Plan revision note: 2026-03-27 04:09Z. Marked the provider-behaviour milestone complete after adding the new terminal provider modules and verifying formatting plus compilation, so the plan reflects the exact landed baseline for the next migration step.
+Plan revision note: 2026-03-27 04:14Z. Marked the collector milestone complete after adding `RR.Providers.Terminal.Mock`, validating the helper API in a dedicated test file, and recording the process-local state decision that keeps async tests isolated.
