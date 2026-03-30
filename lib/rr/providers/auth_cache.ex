@@ -1,6 +1,8 @@
 defmodule RR.Providers.AuthCache do
   @moduledoc false
 
+  alias __MODULE__
+
   @callback get(key :: term()) :: {:hit, boolean()} | :miss
   def get(key), do: impl().get(key)
 
@@ -10,5 +12,5 @@ defmodule RR.Providers.AuthCache do
   @callback clear() :: :ok
   def clear, do: impl().clear()
 
-  defp impl, do: Module.concat([__MODULE__, Application.get_env(:rr, :external_bound, Impl)])
+  defp impl, do: Module.concat([AuthCache, Application.get_env(:rr, :external_bound, Impl)])
 end

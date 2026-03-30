@@ -59,7 +59,8 @@ defmodule RR.CLI.Commands.KfTest do
     end
 
     test "centralizes help through RR.CLI.parse/1" do
-      assert {:ok, %RR.CLI.Help{module: Kf}} = CLI.parse(["kf", "--help"])
+      assert {:ok, %RR.CLI.Invocation{module: RR.CLI, action: %RR.CLI.HelpAction{module: Kf}}} =
+               CLI.parse(["kf", "--help"])
     end
 
     test "rejects missing cluster" do

@@ -6,6 +6,7 @@ defmodule RR.CLI.Commands.Login do
   """
   @behaviour RR.CLI.Command
 
+  alias __MODULE__
   alias RR.CLI.ParseError
   alias RR.Providers.Rancher
   alias RR.Providers.Terminal
@@ -17,19 +18,19 @@ defmodule RR.CLI.Commands.Login do
   def build_action(_switches, rest) do
     case rest do
       [] ->
-        {:ok, %__MODULE__{}}
+        {:ok, %Login{}}
 
       _ ->
         {:error,
          %ParseError{
-           module: __MODULE__,
+           module: Login,
            message: "rr login command doesn't take any args\nyou provided: #{Enum.join(rest, " ")}"
          }}
     end
   end
 
   @impl true
-  def execute(%__MODULE__{}) do
+  def execute(%Login{}) do
     with {:ok, auth} <- Auth.ensure_valid_auth(),
          {:ok, token_info} <- Rancher.get_token_info(auth),
          true <-

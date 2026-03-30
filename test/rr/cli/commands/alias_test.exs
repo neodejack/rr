@@ -41,7 +41,8 @@ defmodule RR.CLI.Commands.AliasTest do
     end
 
     test "centralizes help through RR.CLI.parse/1" do
-      assert {:ok, %RR.CLI.Help{module: Alias}} = CLI.parse(["alias", "--help"])
+      assert {:ok, %RR.CLI.Invocation{module: RR.CLI, action: %RR.CLI.HelpAction{module: Alias}}} =
+               CLI.parse(["alias", "--help"])
     end
 
     test "rejects --list with positional args" do

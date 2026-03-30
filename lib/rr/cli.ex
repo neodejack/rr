@@ -1,15 +1,21 @@
 defmodule RR.CLI do
   @moduledoc false
+  alias __MODULE__
   alias RR.CLI.ArgParser
   alias RR.CLI.Commands.Alias
   alias RR.CLI.Commands.Kf
   alias RR.CLI.Commands.List
   alias RR.CLI.Commands.Login
   alias RR.CLI.Commands.Yo
-  alias RR.CLI.Help
   alias RR.CLI.Invocation
   alias RR.CLI.ParseError
   alias RR.Providers.Terminal
+
+  defmodule HelpAction do
+    @moduledoc false
+    @enforce_keys [:module]
+    defstruct [:module]
+  end
 
   defmodule VersionAction do
     @moduledoc false
@@ -26,12 +32,6 @@ defmodule RR.CLI do
 
   def run(argv) do
     case parse(argv) do
-      {:ok, %Help{} = help} ->
-        render_help(help)
-
-      {:ok, %Invocation{module: __MODULE__, action: %VersionAction{}}} ->
-        render_version()
-
       {:ok, %Invocation{module: module, action: action}} ->
         module.execute(action)
 
@@ -43,13 +43,13 @@ defmodule RR.CLI do
   def parse(argv) do
     case argv do
       [] ->
-        {:ok, %Help{module: nil}}
+        {:ok, %Invocation{module: CLI, action: %HelpAction{module: nil}}}
 
       [flag | _] when flag in ["--help", "-h"] ->
-        {:ok, %Help{module: nil}}
+        {:ok, %Invocation{module: CLI, action: %HelpAction{module: nil}}}
 
       [flag | _] when flag in ["--version", "-v"] ->
-        {:ok, %Invocation{module: __MODULE__, action: %VersionAction{}}}
+        {:ok, %Invocation{module: CLI, action: %VersionAction{}}}
 
       [cmd | args] ->
         case Map.fetch(@commands, cmd) do
@@ -65,45 +65,40 @@ defmodule RR.CLI do
   defp parse_command(module, args) do
     with {:ok, switches, rest} <- ArgParser.parse(args, module.args_definition(), module) do
       if Keyword.has_key?(switches, :help) do
-        {:ok, %Help{module: module}}
+        {:ok, %Invocation{module: CLI, action: %HelpAction{module: module}}}
       else
         normalize_command_result(module, module.build_action(switches, rest))
       end
     end
   end
 
-  defp normalize_command_result(_module, {:ok, %Help{} = help}), do: {:ok, help}
   defp normalize_command_result(module, {:ok, action}), do: {:ok, %Invocation{module: module, action: action}}
   defp normalize_command_result(_module, {:error, %ParseError{} = error}), do: {:error, error}
 
   defp normalize_command_result(module, other) do
     raise ArgumentError,
-          "expected #{inspect(module)}.build_action/2 to return {:ok, action}, {:ok, %RR.CLI.Help{}}, or {:error, %RR.CLI.ParseError{}}, got: #{inspect(other)}"
+          "expected #{inspect(module)}.build_action/2 to return {:ok, action} or {:error, %RR.CLI.ParseError{}}, got: #{inspect(other)}"
   end
 
-  defp render_version do
-    Terminal.info_stdout(Application.spec(:rr)[:vsn])
-    :ok
-  end
-
-  defp render_help(%Help{module: nil}) do
+  def execute(%HelpAction{module: nil}) do
     Terminal.info_stdout("""
     playing with rancher generated kubeconfigs
 
     COMMANDS
-      login     : #{Login.summary()}
-      alias     : #{Alias.summary()}
-      kf        : #{Kf.summary()}
-      list      : #{List.summary()}
-      yo        : #{Yo.summary()}
+    #{Enum.map_join(@commands, "\n  ", fn {name, mod} -> "  #{String.pad_trailing(name, 10)}: #{mod.summary()}" end)}
     """)
 
     Terminal.info_stdout(["current version: ", Application.spec(:rr)[:vsn]])
     :ok
   end
 
-  defp render_help(%Help{module: module}) do
+  def execute(%HelpAction{module: module}) do
     Terminal.info_stdout(module.help())
+    :ok
+  end
+
+  def execute(%VersionAction{}) do
+    Terminal.info_stdout(Application.spec(:rr)[:vsn])
     :ok
   end
 

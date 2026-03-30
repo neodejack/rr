@@ -1,6 +1,8 @@
 defmodule RR.Providers.Terminal do
   @moduledoc false
 
+  alias __MODULE__
+
   @callback info_stdout(IO.ANSI.ansidata() | iodata()) :: :ok
   def info_stdout(message), do: impl().info_stdout(message)
 
@@ -16,5 +18,5 @@ defmodule RR.Providers.Terminal do
   @callback confirm(keyword()) :: boolean()
   def confirm(opts), do: impl().confirm(opts)
 
-  defp impl, do: Module.concat([__MODULE__, Application.get_env(:rr, :external_bound, Impl)])
+  defp impl, do: Module.concat([Terminal, Application.get_env(:rr, :external_bound, Impl)])
 end

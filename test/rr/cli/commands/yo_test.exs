@@ -16,7 +16,8 @@ defmodule RR.CLI.Commands.YoTest do
     end
 
     test "centralizes help through RR.CLI.parse/1" do
-      assert {:ok, %RR.CLI.Help{module: Yo}} = CLI.parse(["yo", "--help"])
+      assert {:ok, %RR.CLI.Invocation{module: RR.CLI, action: %RR.CLI.HelpAction{module: Yo}}} =
+               CLI.parse(["yo", "--help"])
     end
 
     test "rejects unexpected positional args" do

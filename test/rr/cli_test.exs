@@ -3,7 +3,7 @@ defmodule RR.CLITest do
 
   alias RR.CLI
   alias RR.CLI.Commands.List
-  alias RR.CLI.Help
+  alias RR.CLI.HelpAction
   alias RR.CLI.Invocation
   alias RR.CLI.ParseError
   alias RR.Providers.Terminal.Mock, as: TerminalMock
@@ -14,11 +14,12 @@ defmodule RR.CLITest do
 
   describe "parse/1" do
     test "returns root help for empty argv" do
-      assert {:ok, %Help{module: nil}} = CLI.parse([])
+      assert {:ok, %Invocation{module: CLI, action: %HelpAction{module: nil}}} = CLI.parse([])
     end
 
     test "returns command help from the central dispatcher" do
-      assert {:ok, %Help{module: List}} = CLI.parse(["list", "--help"])
+      assert {:ok, %Invocation{module: CLI, action: %HelpAction{module: List}}} =
+               CLI.parse(["list", "--help"])
     end
 
     test "returns invocation for command action" do

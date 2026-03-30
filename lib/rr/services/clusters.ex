@@ -5,10 +5,13 @@ defmodule RR.Services.Clusters do
 
   defmodule Cluster do
     @moduledoc false
+
+    alias __MODULE__
+
     @enforce_keys [:id, :name]
     defstruct [:id, :name, :kubeconfig]
 
-    @type t :: %__MODULE__{
+    @type t :: %Cluster{
             id: String.t(),
             name: String.t(),
             kubeconfig: String.t() | nil

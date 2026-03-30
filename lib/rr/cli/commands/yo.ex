@@ -2,6 +2,7 @@ defmodule RR.CLI.Commands.Yo do
   @moduledoc false
   @behaviour RR.CLI.Command
 
+  alias __MODULE__
   alias RR.CLI.ParseError
   alias RR.Config.Paths
   alias RR.Providers.Terminal
@@ -11,18 +12,18 @@ defmodule RR.CLI.Commands.Yo do
   @impl true
   def build_action(_switches, rest) do
     if rest == [] do
-      {:ok, %__MODULE__{}}
+      {:ok, %Yo{}}
     else
       {:error,
        %ParseError{
-         module: __MODULE__,
+         module: Yo,
          message: "rr yo command doesn't take any args\nyou provided: #{Enum.join(rest, " ")}"
        }}
     end
   end
 
   @impl true
-  def execute(%__MODULE__{}) do
+  def execute(%Yo{}) do
     Paths.yo_template_path()
     |> EEx.eval_file()
     |> Terminal.info_stdout()

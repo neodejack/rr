@@ -2,7 +2,9 @@ defmodule RR.Providers.Terminal.Mock do
   @moduledoc false
   @behaviour RR.Providers.Terminal
 
-  @state_key {__MODULE__, :state}
+  alias __MODULE__
+
+  @state_key {Mock, :state}
 
   @impl true
   def info_stdout(message) do
@@ -115,7 +117,7 @@ defmodule RR.Providers.Terminal.Mock do
   defp pop_next([next | remaining], _kind), do: {next, remaining}
 
   defp pop_next([], kind) do
-    raise ArgumentError, "no scripted #{kind} available for #{inspect(__MODULE__)}"
+    raise ArgumentError, "no scripted #{kind} available for #{inspect(Mock)}"
   end
 
   defp state do

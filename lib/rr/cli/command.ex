@@ -3,7 +3,6 @@ defmodule RR.CLI.Command do
 
   @type parse_result(action) ::
           {:ok, action}
-          | {:ok, RR.CLI.Help.t()}
           | {:error, RR.CLI.ParseError.t()}
 
   @doc """

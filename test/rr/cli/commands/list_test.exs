@@ -42,7 +42,8 @@ defmodule RR.CLI.Commands.ListTest do
     end
 
     test "centralizes help through RR.CLI.parse/1" do
-      assert {:ok, %RR.CLI.Help{module: List}} = CLI.parse(["list", "--help"])
+      assert {:ok, %RR.CLI.Invocation{module: RR.CLI, action: %RR.CLI.HelpAction{module: List}}} =
+               CLI.parse(["list", "--help"])
     end
 
     test "rejects unexpected positional args" do

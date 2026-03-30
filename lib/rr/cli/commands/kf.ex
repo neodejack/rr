@@ -2,6 +2,7 @@ defmodule RR.CLI.Commands.Kf do
   @moduledoc false
   @behaviour RR.CLI.Command
 
+  alias __MODULE__
   alias RR.CLI.ParseError
   alias RR.Config.Paths
   alias RR.Providers.Terminal
@@ -14,13 +15,13 @@ defmodule RR.CLI.Commands.Kf do
   def build_action(switches, rest) do
     cond do
       rest == [] ->
-        {:error, %ParseError{module: __MODULE__, message: "you didn't provide <cluster_name_substring>"}}
+        {:error, %ParseError{module: Kf, message: "you didn't provide <cluster_name_substring>"}}
 
       match?([_], rest) ->
         [cluster] = rest
 
         {:ok,
-         %__MODULE__{
+         %Kf{
            cluster: cluster,
            sh?: Keyword.get(switches, :sh, false),
            new?: Keyword.get(switches, :new, false)
@@ -29,14 +30,14 @@ defmodule RR.CLI.Commands.Kf do
       true ->
         {:error,
          %ParseError{
-           module: __MODULE__,
+           module: Kf,
            message: ["you provided more than one clusters: ", Enum.intersperse(rest, ", ")]
          }}
     end
   end
 
   @impl true
-  def execute(%__MODULE__{cluster: cluster, new?: overwrite?, sh?: sh?}) do
+  def execute(%Kf{cluster: cluster, new?: overwrite?, sh?: sh?}) do
     with {:ok, kubconfig_path} <- Kubeconfigs.fetch(cluster, overwrite: overwrite?) do
       output_kubeconfig_path(kubconfig_path, sh?)
       :ok

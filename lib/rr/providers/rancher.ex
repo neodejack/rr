@@ -1,6 +1,8 @@
 defmodule RR.Providers.Rancher do
   @moduledoc false
 
+  alias __MODULE__
+
   @callback get_clusters(auth :: struct()) :: {:ok, [map()]} | {:error, String.t()}
   def get_clusters(auth), do: impl().get_clusters(auth)
 
@@ -21,5 +23,5 @@ defmodule RR.Providers.Rancher do
   @callback get_token_info(auth :: struct()) :: {:ok, token_info()} | token_error()
   def get_token_info(auth), do: impl().get_token_info(auth)
 
-  defp impl, do: Module.concat([__MODULE__, Application.get_env(:rr, :external_bound, Impl)])
+  defp impl, do: Module.concat([Rancher, Application.get_env(:rr, :external_bound, Impl)])
 end

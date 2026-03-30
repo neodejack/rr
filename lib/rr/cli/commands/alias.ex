@@ -2,6 +2,7 @@ defmodule RR.CLI.Commands.Alias do
   @moduledoc false
   @behaviour RR.CLI.Command
 
+  alias __MODULE__
   alias RR.CLI.ParseError
   alias RR.Providers.Terminal
   alias RR.Services.Aliases
@@ -31,7 +32,7 @@ defmodule RR.CLI.Commands.Alias do
       Keyword.has_key?(switches, :list) ->
         {:error,
          %ParseError{
-           module: __MODULE__,
+           module: Alias,
            message: "--list does not take positional args\nyou provided: #{Enum.join(rest, " ")}"
          }}
 
@@ -42,7 +43,7 @@ defmodule RR.CLI.Commands.Alias do
       true ->
         {:error,
          %ParseError{
-           module: __MODULE__,
+           module: Alias,
            message: "you didn't provide valid <cluster_alias> and <cluster_full_name>"
          }}
     end

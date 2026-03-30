@@ -2,6 +2,7 @@ defmodule RR.CLI.Commands.List do
   @moduledoc false
   @behaviour RR.CLI.Command
 
+  alias __MODULE__
   alias RR.CLI.ParseError
   alias RR.Providers.Terminal
   alias RR.Services.Clusters
@@ -11,18 +12,18 @@ defmodule RR.CLI.Commands.List do
   @impl true
   def build_action(_switches, rest) do
     if rest == [] do
-      {:ok, %__MODULE__{}}
+      {:ok, %List{}}
     else
       {:error,
        %ParseError{
-         module: __MODULE__,
+         module: List,
          message: "the subcommands you provided are invalid\nyou provided: #{Enum.join(rest, " ")}"
        }}
     end
   end
 
   @impl true
-  def execute(%__MODULE__{}) do
+  def execute(%List{}) do
     with {:ok, clusters} <- Clusters.list() do
       clusters
       |> to_rows()

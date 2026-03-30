@@ -58,7 +58,8 @@ defmodule RR.CLI.Commands.LoginTest do
     end
 
     test "centralizes help through RR.CLI.parse/1" do
-      assert {:ok, %RR.CLI.Help{module: Login}} = CLI.parse(["login", "--help"])
+      assert {:ok, %RR.CLI.Invocation{module: RR.CLI, action: %RR.CLI.HelpAction{module: Login}}} =
+               CLI.parse(["login", "--help"])
     end
 
     test "rejects extra args" do
