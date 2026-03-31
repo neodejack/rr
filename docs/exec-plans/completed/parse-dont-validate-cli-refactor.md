@@ -2,7 +2,7 @@
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
-This repository stores ExecPlan guidance in `docs/PLAN.md`. Maintain this document in accordance with `docs/PLAN.md`.
+This repository stores ExecPlan guidance in `docs/PLANS.md`. Maintain this document in accordance with `docs/PLANS.md`.
 
 
 ## Purpose / Big Picture
@@ -14,7 +14,7 @@ After implementation, maintainers will be able to read command behavior in isola
 
 ## Progress
 
-- [x] (2026-03-25 09:28Z) Drafted this ExecPlan from current repository state and aligned structure with `docs/PLAN.md` requirements.
+- [x] (2026-03-25 09:28Z) Drafted this ExecPlan from current repository state and aligned structure with `docs/PLANS.md` requirements.
 - [x] (2026-03-25 09:31Z) Implemented command action data types and parsing boundary modules in `lib/rr/cli/`, then verified the repository still formats, compiles, and passes tests.
 - [x] (2026-03-25 09:35Z) Migrated `yo` and `list` to explicit `parse/1` and `execute/1`, added parser-focused tests, and confirmed the full test suite still passes.
 - [x] (2026-03-25 09:44Z) Migrated `alias` and `kf` to typed actions and pure parse functions, added new `alias` tests plus real `kf` coverage, and verified the full suite again.
@@ -25,8 +25,8 @@ After implementation, maintainers will be able to read command behavior in isola
 
 ## Surprises & Discoveries
 
-- Observation: ExecPlan repository guidance uses `docs/PLAN.md` (singular) and not `docs/PLANS.md`.
-  Evidence: `rg --files docs` shows `docs/PLAN.md`.
+- Observation: ExecPlan repository guidance uses `docs/PLANS.md`.
+  Evidence: `rg --files docs` shows `docs/PLANS.md`.
 
 - Observation: Existing command coverage is uneven; `test/rr/cli/commands/kf_test.exs` is currently a placeholder and does not protect parse behavior.
   Evidence: the file contains an empty test body in the `describe "test response"` block.

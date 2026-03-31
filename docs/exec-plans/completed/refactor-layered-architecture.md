@@ -2,7 +2,7 @@
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
-This repository stores the ExecPlan guidance in `docs/PLAN.md` rather than `docs/PLANS.md`. Maintain this document in accordance with `docs/PLAN.md`.
+This repository stores the ExecPlan guidance in `docs/PLANS.md`. Maintain this document in accordance with `docs/PLANS.md`.
 
 
 ## Purpose / Big Picture
@@ -32,8 +32,8 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
 
 ## Surprises & Discoveries
 
-- Observation: The repository guidance file is `docs/PLAN.md`, not `docs/PLANS.md` as referenced by the skill and the original draft of this plan.
-  Evidence: `find docs -maxdepth 3 -type f | sort` returned `docs/PLAN.md` and `docs/exec-plans/refactor-layered-architecture.md`.
+- Observation: The repository guidance file is `docs/PLANS.md`.
+  Evidence: `find docs -maxdepth 3 -type f | sort` returned `docs/PLANS.md` and `docs/exec-plans/refactor-layered-architecture.md`.
 
 - Observation: Replacing the ETS cache with a mocked provider changed the tests' setup requirements. `start_supervised!/1` used the default `Agent` child id, so repeated setup blocks collided until each agent received a unique `id`.
   Evidence: `mix test` initially failed with `bad child specification, got: {:already_started, ...}` in `test/rr/config/auth_test.exs` and `test/rr/login_test.exs`.
@@ -65,8 +65,8 @@ The dependency rule: arrows point only downward. CLI → Services → Providers 
   Rationale: The current `External.RancherHttpClient.Impl.rancher_base_req/0` calls `Auth.ensure_valid_auth()` inside itself, meaning the Provider reaches up into the Service layer. This creates a circular dependency (Provider → Auth → Provider). After refactoring, Services load auth and pass it down.
   Date/Author: 2026-03-25
 
-- Decision: Treat `docs/PLAN.md` as the repository-local source of truth for ExecPlan maintenance and note the naming discrepancy inside this plan instead of renaming files mid-refactor.
-  Rationale: The repository already checks in `docs/PLAN.md`, and changing the plan-guidance filename would add unrelated churn to an architecture refactor. Recording the discrepancy keeps the plan self-consistent without expanding scope.
+- Decision: Treat `docs/PLANS.md` as the repository-local source of truth for ExecPlan maintenance.
+  Rationale: The repository checks in `docs/PLANS.md`, so the plan should point to that canonical file directly.
   Date/Author: 2026-03-25
 
 - Decision: Keep the shared provider app-env key as `:external_bound` during the refactor instead of renaming it to `:provider_impl`.

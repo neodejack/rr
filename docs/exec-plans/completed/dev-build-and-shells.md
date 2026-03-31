@@ -2,7 +2,7 @@
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
-This repository stores ExecPlan guidance in `docs/PLAN.md`. Maintain this document in accordance with `docs/PLAN.md`.
+This repository stores ExecPlan guidance in `docs/PLANS.md`. Maintain this document in accordance with `docs/PLANS.md`.
 
 
 ## Purpose / Big Picture
@@ -26,8 +26,8 @@ After this change, a maintainer will be able to run `just dev build` once to pro
 
 ## Surprises & Discoveries
 
-- Observation: This repository stores ExecPlan guidance in `docs/PLAN.md` (singular), not `docs/PLANS.md`.
-  Evidence: `rg --files docs` shows `docs/PLAN.md`.
+- Observation: This repository stores ExecPlan guidance in `docs/PLANS.md`.
+  Evidence: `rg --files docs` shows `docs/PLANS.md`.
 
 - Observation: The current root `justfile` is minimal and does not already contain any grouping or dev-shell workflow to extend.
   Evidence: `just --dump` shows only `list` and `upgrade_rr`.

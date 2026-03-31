@@ -2,7 +2,7 @@
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
-This repository stores ExecPlan guidance in `docs/PLAN.md`. Maintain this document in accordance with `docs/PLAN.md`.
+This repository stores ExecPlan guidance in `docs/PLANS.md`. Maintain this document in accordance with `docs/PLANS.md`.
 
 
 ## Purpose / Big Picture
@@ -14,8 +14,8 @@ For a maintainer, the result is easier to read because the common option-parsing
 
 ## Progress
 
-- [x] (2026-03-26 13:33Z) Drafted this ExecPlan from the current repository state, the agreed Approach 1 design, and the repository guidance in `docs/PLAN.md`.
-- [x] (2026-03-26 14:03Z) Moved this ExecPlan from `docs/exec-plans/todo/` to `docs/exec-plans/active/` before implementation, per `docs/PLAN.md`.
+- [x] (2026-03-26 13:33Z) Drafted this ExecPlan from the current repository state, the agreed Approach 1 design, and the repository guidance in `docs/PLANS.md`.
+- [x] (2026-03-26 14:03Z) Moved this ExecPlan from `docs/exec-plans/todo/` to `docs/exec-plans/active/` before implementation, per `docs/PLANS.md`.
 - [x] (2026-03-26 14:10Z) Updated `RR.CLI.Command` to replace `parse/1` with `args_definition/0` and `build_action/2`, and added callback docs that spell out the centralized-help contract.
 - [x] (2026-03-26 14:10Z) Refactored `RR.CLI.parse_command/2` to own `ArgParser.parse/3`, centralize `--help`, and normalize `build_action/2` results into `RR.CLI.Invocation` or `RR.CLI.ParseError`.
 - [x] (2026-03-26 14:10Z) Converted `kf`, `alias`, `list`, `yo`, and `login` to the new behavior and removed their direct raw-argv parsing.
@@ -24,8 +24,8 @@ For a maintainer, the result is easier to read because the common option-parsing
 
 ## Surprises & Discoveries
 
-- Observation: This repository uses `docs/PLAN.md` rather than `docs/PLANS.md` as the ExecPlan source of truth.
-  Evidence: `find docs -maxdepth 3 -type f | sort` lists `docs/PLAN.md`.
+- Observation: This repository uses `docs/PLANS.md` as the ExecPlan source of truth.
+  Evidence: `find docs -maxdepth 3 -type f | sort` lists `docs/PLANS.md`.
 
 - Observation: The repo already contains a completed exec plan for a previous CLI parse/execute refactor, so this plan must describe only the current follow-up refactor and remain self-contained.
   Evidence: `docs/exec-plans/completed/parse-dont-validate-cli-refactor.md` exists and describes the current parse/execute split that is already present in the codebase.

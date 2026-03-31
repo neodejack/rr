@@ -2,7 +2,7 @@
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.
 
-This repository stores ExecPlan guidance in `docs/PLAN.md`. Maintain this document in accordance with `docs/PLAN.md`.
+This repository stores ExecPlan guidance in `docs/PLANS.md`. Maintain this document in accordance with `docs/PLANS.md`.
 
 
 ## Purpose / Big Picture
@@ -14,8 +14,8 @@ After this change, all terminal interaction will live behind a single provider b
 
 ## Progress
 
-- [x] (2026-03-27 10:11Z) Drafted this ExecPlan from the current repository state, the agreed design from the discussion, and the repository guidance in `docs/PLAN.md`.
-- [x] (2026-03-27 04:08Z) Moved this ExecPlan from `docs/exec-plans/todo/` to `docs/exec-plans/active/`, re-read `docs/PLAN.md`, and re-inspected every direct terminal call site plus the existing provider pattern before editing code.
+- [x] (2026-03-27 10:11Z) Drafted this ExecPlan from the current repository state, the agreed design from the discussion, and the repository guidance in `docs/PLANS.md`.
+- [x] (2026-03-27 04:08Z) Moved this ExecPlan from `docs/exec-plans/todo/` to `docs/exec-plans/active/`, re-read `docs/PLANS.md`, and re-inspected every direct terminal call site plus the existing provider pattern before editing code.
 - [x] (2026-03-27 04:09Z) Added `RR.Providers.Terminal` and `RR.Providers.Terminal.Impl` with the shared provider selector, preserving the existing stdout ANSI formatting and Owl-backed prompt behavior. Verified with `mix format --check-formatted` and `mix compile --warnings-as-errors`.
 - [x] (2026-03-27 04:14Z) Added `RR.Providers.Terminal.Mock` with process-local transcript collection plus scripted input and confirmation queues, and verified the helper API with `mix test test/rr/providers/terminal/mock_test.exs`.
 - [x] (2026-03-27 04:18Z) Migrated every active CLI and service call site from `RR.CLI.Output` and direct Owl prompts to `RR.Providers.Terminal`, removed `lib/rr/cli/output.ex`, and verified with `rg -n "RR\\.CLI\\.Output|Owl\\.IO\\.(input|confirm)" lib`, `mix format --check-formatted`, and `mix compile --warnings-as-errors`.
@@ -24,8 +24,8 @@ After this change, all terminal interaction will live behind a single provider b
 
 ## Surprises & Discoveries
 
-- Observation: This repository stores ExecPlan guidance in `docs/PLAN.md`, not `docs/PLANS.md`.
-  Evidence: `find docs -maxdepth 3 -type f | sort` lists `docs/PLAN.md` and no `docs/PLANS.md`.
+- Observation: This repository stores ExecPlan guidance in `docs/PLANS.md`.
+  Evidence: `find docs -maxdepth 3 -type f | sort` lists `docs/PLANS.md`.
 
 - Observation: The repository already has a provider pattern with a shared `:external_bound` app-env switch, so a terminal provider can fit the existing architecture instead of introducing a new mechanism.
   Evidence: `lib/rr/providers/rancher.ex`, `lib/rr/providers/settings_store.ex`, and `lib/rr/providers/auth_cache.ex` all delegate through `Application.get_env(:rr, :external_bound, ...)`.
