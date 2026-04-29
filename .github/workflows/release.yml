@@ -70,10 +70,23 @@ jobs:
                 echo "Unexpected Burrito artifact name $base; expected prefix rr_<os>" >&2
                 exit 1
               fi
+              # Map Burrito's OS token to a Rust target triple so release assets
+              # are auto-detected by tooling such as mise's ubi backend.
+              case "$os_name" in
+                linux)      triple="x86_64-unknown-linux-gnu" ;;
+                linux_arm)  triple="aarch64-unknown-linux-gnu" ;;
+                macos)      triple="x86_64-apple-darwin" ;;
+                macos_arm)  triple="aarch64-apple-darwin" ;;
+                windows)    triple="x86_64-pc-windows-msvc" ;;
+                *)
+                  echo "Unknown Burrito OS token: $os_name" >&2
+                  exit 1
+                  ;;
+              esac
               tmp_dir="$(mktemp -d)"
               target_name="rr${extension}"
               cp "$target" "$tmp_dir/$target_name"
-              tar -czf "release-artifacts/rr_${os_name}.tar.gz" -C "$tmp_dir" "$target_name"
+              tar -czf "release-artifacts/rr-${GITHUB_REF_NAME}-${triple}.tar.gz" -C "$tmp_dir" "$target_name"
               rm -rf "$tmp_dir"
               archive_count=$((archive_count + 1))
             done
