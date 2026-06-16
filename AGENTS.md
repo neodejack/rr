@@ -1,37 +1,34 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-- `lib/` contains the Elixir source. CLI entrypoint is `lib/rr.ex`; command modules live under `lib/cmds/`; configuration helpers are under `lib/config/`.
-- `priv/templates/` holds EEx templates (e.g., `sh.eex` for `rr kf --sh`).
-- `test/` mirrors `lib/` and uses `*_test.exs` naming (e.g., `test/rr/kf_test.exs`).
-- Build artifacts land in `_build/` and release binaries in `burrito_out/`.
+## Start Here
 
-## Build, Test, and Development Commands
+- Read `docs/GUIDELINES.md` before making changes. It is the index for the repo's working rules and points to the detailed pages under `docs/guidelines/`.
+- Read `docs/ARCHITECTURE.md` before planning or making changes. It is small enough to treat as standard context, and it answers "where does this change live?"
+- Before planning a code change, read `docs/DESIGN.md`. If it points to an area-specific design doc for the code you are touching, read that doc before editing.
+
+## Canonical Commands
+
 - `mix deps.get` installs dependencies.
-- `mix compile` builds the project.
-- `iex -S mix` runs the CLI in an interactive shell for local debugging.
-- `mix test` runs the full test suite; `mix test test/rr/kf_test.exs` runs a single file.
-- `MIX_ENV=prod BURRITO_TARGET=macos_arm mix release --overwrite` builds the local macOS arm64 Burrito binary.
-- `rr maintenance uninstall` removes Burrito's cached runtime so a rebuilt binary with the same version is re-extracted.
+- `mix compile` is the baseline compile check.
+- `mix test` runs the full test suite.
+- `mix test path/to/test_file.exs` runs focused tests while iterating.
 - `mix format --check-formatted` verifies formatting; `mix format` applies it.
+- `iex -S mix` starts the CLI in an interactive Elixir shell.
+- `just dev build` builds the local development binaries.
+- `just dev macos` opens the isolated macOS dev shell.
+- `just dev linux` opens the isolated Linux dev shell.
+- `MIX_ENV=prod BURRITO_TARGET=macos_arm mix release --overwrite` builds the local macOS arm64 release binary.
+- `rr maintenance uninstall` removes Burrito's cached runtime when a same-version rebuild looks stale.
 
-## Coding Style & Naming Conventions
-- Use standard Elixir formatting (2-space indentation; `mix format` enforced).
-- Test files must end with `_test.exs` and mirror the `lib/` module path.
-- Prefer clear, lower_snake_case function names and modules that reflect their domain (`RR.Config.Auth`, `RR.Cmds.Kf`).
-- Keep command output and errors centralized in `lib/rr/shell.ex` to preserve CLI consistency.
+## Verification
 
-## Testing Guidelines
-- Framework: ExUnit. Mocks use `mox` where applicable.
-- To mock a behavior, define callbacks in the behavior module and rely on the runtime `impl()` indirection; tests use the `*.Mock` module to stub callbacks with `expect/3` and `setup :verify_on_exit!` to enforce usage.
-- Add or update tests for CLI behavior changes and config/auth edge cases.
-- Run `mix test` before submitting; target-specific tests when iterating.
+- Run the smallest reliable command set for the files you changed, then run `mix test` for behavior changes.
+- Use `mix compile` plus targeted tests as the baseline for narrow refactors.
+- Run `mix format --check-formatted` before finishing any code change.
+- If you touch Burrito packaging or the dev shell scripts, validate with the relevant `just dev ...` workflow.
 
-## Commit & Pull Request Guidelines
-- Commit history favors short, imperative, lower-case summaries (e.g., “refactor”, “update readme”).
-- Use `release: vX.Y.Z` for version bumps.
-- PRs should include: a brief problem/solution summary, test commands run, and any user-facing behavior changes. Add screenshots only if CLI output changes meaningfully.
+## ExecPlans
 
-## Configuration & Security Notes
-- Local state is stored in `~/.rr/` by default; override with `RR_HOME`.
-- Do not commit Rancher tokens or kubeconfigs. Add new secrets to environment variables or local config only.
+- Use an ExecPlan for complex features, multi-step fixes, or significant refactors.
+- Read `docs/PLANS.md` for the format and maintenance rules.
+- Store plans in `docs/exec-plans/todo/`, move them to `docs/exec-plans/active/` while implementing, and keep completed plans in `docs/exec-plans/completed/`.

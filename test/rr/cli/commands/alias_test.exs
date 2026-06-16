@@ -1,0 +1,74 @@
+defmodule RR.CLI.Commands.AliasTest do
+  use ExUnit.Case, async: true
+
+  import Mox
+
+  alias RR.CLI
+  alias RR.CLI.Commands.Alias
+  alias RR.CLI.Commands.Alias.ListAction
+  alias RR.CLI.Commands.Alias.SetAction
+  alias RR.CLI.ParseError
+  alias RR.Providers.SettingsStore.Mock, as: SettingsStoreMock
+  alias RR.Providers.Terminal.Mock, as: TerminalMock
+  alias RR.Settings
+
+  setup :verify_on_exit!
+
+  setup do
+    TerminalMock.reset()
+    store = start_supervised!({Agent, fn -> %{} end}, id: make_ref())
+
+    stub(SettingsStoreMock, :read, fn ->
+      Agent.get(store, & &1)
+    end)
+
+    stub(SettingsStoreMock, :write, fn config ->
+      Agent.update(store, fn _ -> config end)
+      :ok
+    end)
+
+    :ok
+  end
+
+  describe "build_action/2" do
+    test "returns list action for --list switch" do
+      assert {:ok, %ListAction{}} = Alias.build_action([list: true], [])
+    end
+
+    test "returns set action for alias pair" do
+      assert {:ok, %SetAction{alias_name: "prod", full_name: "production"}} =
+               Alias.build_action([], ["prod", "production"])
+    end
+
+    test "centralizes help through RR.CLI.parse/1" do
+      assert {:ok, %RR.CLI.Invocation{module: RR.CLI, action: %RR.CLI.HelpAction{module: Alias}}} =
+               CLI.parse(["alias", "--help"])
+    end
+
+    test "rejects --list with positional args" do
+      assert {:error, %ParseError{module: Alias, message: message}} =
+               Alias.build_action([list: true], ["extra"])
+
+      assert message =~ "--list does not take positional args"
+      assert message =~ "extra"
+    end
+  end
+
+  describe "execute/1" do
+    test "writes an alias for set action" do
+      assert :ok = Alias.execute(%SetAction{alias_name: "prod", full_name: "production"})
+
+      assert TerminalMock.stdout() =~ "alias: prod -> production"
+      assert Settings.get_in(["alias", "prod"]) == "production"
+    end
+
+    test "renders alias list for list action" do
+      Settings.put_in([Access.key("alias", %{}), "prod"], "production")
+
+      assert :ok = Alias.execute(%ListAction{})
+
+      assert TerminalMock.stdout() =~ "these aliases are found"
+      assert TerminalMock.stdout() =~ "prod -> production"
+    end
+  end
+end

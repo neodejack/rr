@@ -1,0 +1,94 @@
+defmodule RR.Providers.Rancher.Impl do
+  @moduledoc false
+  @behaviour RR.Providers.Rancher
+
+  alias RR.Providers.Terminal
+  alias RR.Services.Auth
+  alias RR.Services.Clusters.Cluster
+
+  @impl true
+  def get_clusters(%Auth{} = auth) do
+    url = "/v3/clusters"
+
+    with {:ok, req} <- rancher_base_req(auth),
+         {:ok, resp} <- Req.get(req, url: url) do
+      case resp do
+        %Req.Response{status: 200, body: body} ->
+          if [] == body["data"] do
+            {:error, "no clusters info found"}
+          else
+            {:ok, body["data"]}
+          end
+
+        non_200_resp ->
+          Terminal.error(inspect(non_200_resp))
+          {:error, "http error for #{url}"}
+      end
+    else
+      {:error, %Req.TransportError{} = err} ->
+        {:error, "http request failed for #{url}: #{Exception.message(err)}"}
+    end
+  end
+
+  @impl true
+  def get_kubeconfig(%Auth{} = auth, %Cluster{id: id} = cluster) do
+    url = "/v3/clusters/#{id}?action=generateKubeconfig"
+
+    with {:ok, req} <- rancher_base_req(auth),
+         {:ok, resp} <- Req.post(req, url: url) do
+      case resp do
+        %Req.Response{status: 200} ->
+          {:ok, %{cluster | kubeconfig: resp.body["config"]}}
+
+        _ ->
+          {:error,
+           IO.iodata_to_binary([
+             "http request to rancher api failed.\n",
+             "request url: ",
+             url,
+             "\nerror response:\n",
+             inspect(resp.body)
+           ])}
+      end
+    else
+      {:error, %Req.TransportError{} = err} ->
+        {:error, "http request failed for #{url}: #{Exception.message(err)}"}
+    end
+  end
+
+  @impl true
+  def get_token_info(%Auth{rancher_hostname: rancher_hostname, rancher_token: rancher_token}) do
+    [token_id | _] = String.split(rancher_token, ":")
+
+    url = "#{rancher_hostname}/v3/tokens/#{token_id}"
+
+    case Req.get(url, auth: {:bearer, rancher_token}) do
+      {:ok, %Req.Response{status: 200, body: body}} ->
+        {:ok,
+         %{
+           description: body["description"],
+           expired: body["expired"],
+           enabled: body["enabled"],
+           created_ts: body["createdTS"],
+           ttl: body["ttl"]
+         }}
+
+      {:ok, %Req.Response{status: status}} when status in [401, 403] ->
+        {:error, :unauthorized, "rancher token is not valid or has expired"}
+
+      {:ok, resp} ->
+        {:error, :unknown, "rancher api error - GET #{url}\n#{inspect(resp.body)}"}
+
+      {_, error} ->
+        {:error, :unknown, "rancher api error - GET #{url}\n#{inspect(error)}"}
+    end
+  end
+
+  defp rancher_base_req(%Auth{} = auth) do
+    {:ok,
+     Req.new(
+       base_url: auth.rancher_hostname,
+       auth: {:bearer, auth.rancher_token}
+     )}
+  end
+end
